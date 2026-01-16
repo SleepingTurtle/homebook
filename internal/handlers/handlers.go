@@ -2,13 +2,16 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"homebooks/internal/auth"
 	"homebooks/internal/database"
+	"homebooks/internal/logger"
 	"homebooks/internal/models"
 )
 
@@ -26,34 +29,38 @@ func New(db *database.DB, a *auth.Auth, tmpl *template.Template) *Handler {
 	}
 }
 
-func (h *Handler) render(w http.ResponseWriter, name string, data map[string]interface{}) {
+func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, data map[string]interface{}) {
 	err := h.tmpl.ExecuteTemplate(w, name, data)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		l := logger.FromContext(r.Context())
+		l.Error("template_render_error", "template", name, "error", err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
 
 // Login handlers
 func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	token := h.auth.GetSessionFromRequest(r)
-	if token != "" && h.auth.ValidateSession(token) {
+	if token != "" && h.auth.ValidateSession(ctx, token) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	h.render(w, "login.html", map[string]interface{}{"Error": ""})
+	h.render(w, r, "login.html", map[string]interface{}{"Error": ""})
 }
 
 func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	password := r.FormValue("password")
 
-	if !h.auth.CheckPassword(password) {
-		h.render(w, "login.html", map[string]interface{}{"Error": "Invalid password"})
+	if !h.auth.CheckPassword(ctx, password) {
+		h.render(w, r, "login.html", map[string]interface{}{"Error": "Invalid password"})
 		return
 	}
 
-	token, err := h.auth.CreateSession()
+	token, err := h.auth.CreateSession(ctx)
 	if err != nil {
-		h.render(w, "login.html", map[string]interface{}{"Error": "Failed to create session"})
+		h.render(w, r, "login.html", map[string]interface{}{"Error": "Failed to create session"})
 		return
 	}
 
@@ -62,9 +69,10 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	token := h.auth.GetSessionFromRequest(r)
 	if token != "" {
-		h.auth.DeleteSession(token)
+		h.auth.DeleteSession(ctx, token)
 	}
 	h.auth.ClearSessionCookie(w)
 	http.Redirect(w, r, "/login", http.StatusFound)
@@ -73,21 +81,21 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 // Dashboard
 func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	unpaidExpenses, expenseTotal, _ := h.db.ListUnpaidExpenses()
-	unpaidPayroll, payrollTotal, _ := h.db.ListUnpaidPayroll()
 	recentSalesGrouped, recentSalesTotal, _ := h.db.ListRecentSalesGrouped(7)
+	todaySalesTotal, _ := h.db.GetTodaySalesTotal()
+	todayExpensesTotal, _ := h.db.GetTodayExpensesTotal()
 
 	data := models.DashboardData{
+		TodaySalesTotal:      todaySalesTotal,
+		TodayExpensesTotal:   todayExpensesTotal,
 		UnpaidExpensesTotal:  expenseTotal,
 		UnpaidExpensesCount:  len(unpaidExpenses),
-		UnpaidPayrollTotal:   payrollTotal,
-		UnpaidPayrollCount:   len(unpaidPayroll),
 		RecentSalesGrouped:   recentSalesGrouped,
 		RecentSalesTotal:     recentSalesTotal,
 		UnpaidExpenses:       unpaidExpenses,
-		UnpaidPayroll:        unpaidPayroll,
 	}
 
-	h.render(w, "dashboard.html", map[string]interface{}{
+	h.render(w, r, "dashboard.html", map[string]interface{}{
 		"Title":  "Dashboard",
 		"Active": "dashboard",
 		"Data":   data,
@@ -96,16 +104,36 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 
 // Vendors handlers
 func (h *Handler) VendorsList(w http.ResponseWriter, r *http.Request) {
-	vendors, _ := h.db.ListVendors()
-	h.render(w, "vendors_list.html", map[string]interface{}{
+	vendors, err := h.db.ListVendors()
+	if err != nil {
+		logger.FromContext(r.Context()).Error("vendor_list_error", "error", err.Error())
+	}
+	h.render(w, r, "vendors_list.html", map[string]interface{}{
 		"Title":   "Vendors",
 		"Active":  "vendors",
 		"Vendors": vendors,
 	})
 }
 
+func (h *Handler) VendorsShow(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	vendor, err := h.db.GetVendor(id)
+	if err != nil {
+		http.Redirect(w, r, "/vendors", http.StatusFound)
+		return
+	}
+	expenses, total, _ := h.db.ListExpenses(models.ExpenseFilter{VendorID: id})
+	h.render(w, r, "vendors_show.html", map[string]interface{}{
+		"Title":    vendor.Name,
+		"Active":   "vendors",
+		"Vendor":   vendor,
+		"Expenses": expenses,
+		"Total":    total,
+	})
+}
+
 func (h *Handler) VendorsNew(w http.ResponseWriter, r *http.Request) {
-	h.render(w, "vendors_form.html", map[string]interface{}{
+	h.render(w, r, "vendors_form.html", map[string]interface{}{
 		"Title":      "New Vendor",
 		"Active":     "vendors",
 		"Vendor":     models.Vendor{},
@@ -114,12 +142,14 @@ func (h *Handler) VendorsNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) VendorsCreate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	name := r.FormValue("name")
-	category := r.FormValue("category")
+	categories := r.Form["category"]
+	category := strings.Join(categories, ",")
 	description := r.FormValue("description")
 
 	if name == "" {
-		h.render(w, "vendors_form.html", map[string]interface{}{
+		h.render(w, r, "vendors_form.html", map[string]interface{}{
 			"Title":      "New Vendor",
 			"Active":     "vendors",
 			"Vendor":     models.Vendor{Name: name, Category: category, Description: description},
@@ -131,7 +161,7 @@ func (h *Handler) VendorsCreate(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.db.CreateVendor(name, category, description)
 	if err != nil {
-		h.render(w, "vendors_form.html", map[string]interface{}{
+		h.render(w, r, "vendors_form.html", map[string]interface{}{
 			"Title":      "New Vendor",
 			"Active":     "vendors",
 			"Vendor":     models.Vendor{Name: name, Category: category, Description: description},
@@ -151,7 +181,7 @@ func (h *Handler) VendorsEdit(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/vendors", http.StatusFound)
 		return
 	}
-	h.render(w, "vendors_form.html", map[string]interface{}{
+	h.render(w, r, "vendors_form.html", map[string]interface{}{
 		"Title":      "Edit Vendor",
 		"Active":     "vendors",
 		"Vendor":     vendor,
@@ -160,13 +190,15 @@ func (h *Handler) VendorsEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) VendorsUpdate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	name := r.FormValue("name")
-	category := r.FormValue("category")
+	categories := r.Form["category"]
+	category := strings.Join(categories, ",")
 	description := r.FormValue("description")
 
 	if name == "" {
-		h.render(w, "vendors_form.html", map[string]interface{}{
+		h.render(w, r, "vendors_form.html", map[string]interface{}{
 			"Title":      "Edit Vendor",
 			"Active":     "vendors",
 			"Vendor":     models.Vendor{ID: id, Name: name, Category: category, Description: description},
@@ -178,7 +210,7 @@ func (h *Handler) VendorsUpdate(w http.ResponseWriter, r *http.Request) {
 
 	err := h.db.UpdateVendor(id, name, category, description)
 	if err != nil {
-		h.render(w, "vendors_form.html", map[string]interface{}{
+		h.render(w, r, "vendors_form.html", map[string]interface{}{
 			"Title":      "Edit Vendor",
 			"Active":     "vendors",
 			"Vendor":     models.Vendor{ID: id, Name: name, Category: category, Description: description},
@@ -200,7 +232,7 @@ func (h *Handler) VendorsDelete(w http.ResponseWriter, r *http.Request) {
 // Employees handlers
 func (h *Handler) EmployeesList(w http.ResponseWriter, r *http.Request) {
 	employees, _ := h.db.ListEmployees(false)
-	h.render(w, "employees_list.html", map[string]interface{}{
+	h.render(w, r, "employees_list.html", map[string]interface{}{
 		"Title":     "Employees",
 		"Active":    "employees",
 		"Employees": employees,
@@ -214,7 +246,7 @@ func (h *Handler) EmployeesCreate(w http.ResponseWriter, r *http.Request) {
 
 	if name == "" || hourlyRate <= 0 {
 		employees, _ := h.db.ListEmployees(false)
-		h.render(w, "employees_list.html", map[string]interface{}{
+		h.render(w, r, "employees_list.html", map[string]interface{}{
 			"Title":     "Employees",
 			"Active":    "employees",
 			"Employees": employees,
@@ -226,7 +258,7 @@ func (h *Handler) EmployeesCreate(w http.ResponseWriter, r *http.Request) {
 	_, err := h.db.CreateEmployee(name, hourlyRate, paymentMethod)
 	if err != nil {
 		employees, _ := h.db.ListEmployees(false)
-		h.render(w, "employees_list.html", map[string]interface{}{
+		h.render(w, r, "employees_list.html", map[string]interface{}{
 			"Title":     "Employees",
 			"Active":    "employees",
 			"Employees": employees,
@@ -253,7 +285,7 @@ func (h *Handler) EmployeesReactivate(w http.ResponseWriter, r *http.Request) {
 // Sales handlers
 func (h *Handler) SalesList(w http.ResponseWriter, r *http.Request) {
 	grouped, _ := h.db.ListSalesGrouped()
-	h.render(w, "sales_list.html", map[string]any{
+	h.render(w, r, "sales_list.html", map[string]any{
 		"Title":     "Daily Sales",
 		"Active":    "sales",
 		"Grouped":   grouped,
@@ -263,7 +295,7 @@ func (h *Handler) SalesList(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) SalesNew(w http.ResponseWriter, r *http.Request) {
 	sale := models.DailySale{Date: time.Now().Format("2006-01-02")}
-	h.render(w, "sales_form.html", map[string]interface{}{
+	h.render(w, r, "sales_form.html", map[string]interface{}{
 		"Title":  "New Sale",
 		"Active": "sales",
 		"Sale":   sale,
@@ -284,7 +316,7 @@ func (h *Handler) SalesCreate(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.db.UpsertSale(sale)
 	if err != nil {
-		h.render(w, "sales_form.html", map[string]interface{}{
+		h.render(w, r, "sales_form.html", map[string]interface{}{
 			"Title":  "New Sale",
 			"Active": "sales",
 			"Sale":   sale,
@@ -302,7 +334,7 @@ func (h *Handler) SalesEdit(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/sales", http.StatusFound)
 		return
 	}
-	h.render(w, "sales_form.html", map[string]interface{}{
+	h.render(w, r, "sales_form.html", map[string]interface{}{
 		"Title":  "Edit Sale",
 		"Active": "sales",
 		"Sale":   sale,
@@ -325,7 +357,7 @@ func (h *Handler) SalesUpdate(w http.ResponseWriter, r *http.Request) {
 
 	err := h.db.UpdateSale(sale)
 	if err != nil {
-		h.render(w, "sales_form.html", map[string]interface{}{
+		h.render(w, r, "sales_form.html", map[string]interface{}{
 			"Title":  "Edit Sale",
 			"Active": "sales",
 			"Sale":   sale,
@@ -360,7 +392,7 @@ func (h *Handler) DeliveryNew(w http.ResponseWriter, r *http.Request) {
 		date = time.Now().Format("2006-01-02")
 	}
 	delivery := models.DeliverySales{Date: date}
-	h.render(w, "delivery_form.html", map[string]any{
+	h.render(w, r, "delivery_form.html", map[string]any{
 		"Title":    "Add Delivery Sales",
 		"Active":   "sales",
 		"Delivery": delivery,
@@ -377,7 +409,7 @@ func (h *Handler) DeliveryEdit(w http.ResponseWriter, r *http.Request) {
 	if delivery == nil {
 		delivery = &models.DeliverySales{Date: date}
 	}
-	h.render(w, "delivery_form.html", map[string]any{
+	h.render(w, r, "delivery_form.html", map[string]any{
 		"Title":    "Edit Delivery Sales",
 		"Active":   "sales",
 		"Delivery": *delivery,
@@ -405,7 +437,7 @@ func (h *Handler) DeliverySave(w http.ResponseWriter, r *http.Request) {
 
 	err := h.db.UpsertDeliverySales(delivery)
 	if err != nil {
-		h.render(w, "delivery_form.html", map[string]any{
+		h.render(w, r, "delivery_form.html", map[string]any{
 			"Title":    "Edit Delivery Sales",
 			"Active":   "sales",
 			"Delivery": delivery,
@@ -421,27 +453,29 @@ func (h *Handler) DeliverySave(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ExpensesList(w http.ResponseWriter, r *http.Request) {
 	vendorID, _ := strconv.ParseInt(r.URL.Query().Get("vendor_id"), 10, 64)
 	filter := models.ExpenseFilter{
-		StartDate: r.URL.Query().Get("start_date"),
-		EndDate:   r.URL.Query().Get("end_date"),
-		Status:    r.URL.Query().Get("status"),
-		VendorID:  vendorID,
+		StartDate:  r.URL.Query().Get("start_date"),
+		EndDate:    r.URL.Query().Get("end_date"),
+		Status:     r.URL.Query().Get("status"),
+		VendorID:   vendorID,
+		Categories: r.URL.Query()["category"],
 	}
 	expenses, total, _ := h.db.ListExpenses(filter)
 	vendors, _ := h.db.ListVendors()
-	h.render(w, "expenses_list.html", map[string]interface{}{
-		"Title":    "Expenses",
-		"Active":   "expenses",
-		"Expenses": expenses,
-		"Total":    total,
-		"Vendors":  vendors,
-		"Filter":   filter,
+	h.render(w, r, "expenses_list.html", map[string]interface{}{
+		"Title":      "Expenses",
+		"Active":     "expenses",
+		"Expenses":   expenses,
+		"Total":      total,
+		"Vendors":    vendors,
+		"Filter":     filter,
+		"Categories": models.VendorCategories,
 	})
 }
 
 func (h *Handler) ExpensesNew(w http.ResponseWriter, r *http.Request) {
 	vendors, _ := h.db.ListVendors()
 	lastCheck, _ := h.db.GetLastExpenseCheckNumber()
-	h.render(w, "expenses_form.html", map[string]interface{}{
+	h.render(w, r, "expenses_form.html", map[string]interface{}{
 		"Title":           "New Expense",
 		"Active":          "expenses",
 		"Expense":         models.Expense{Date: time.Now().Format("2006-01-02")},
@@ -463,6 +497,7 @@ func (h *Handler) ExpensesCreate(w http.ResponseWriter, r *http.Request) {
 		PaymentType:   r.FormValue("payment_type"),
 		CheckNumber:   r.FormValue("check_number"),
 		DateOpened:    r.FormValue("date_opened"),
+		DueDate:       r.FormValue("due_date"),
 		DatePaid:      r.FormValue("date_paid"),
 		Notes:         r.FormValue("notes"),
 	}
@@ -471,7 +506,7 @@ func (h *Handler) ExpensesCreate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		vendors, _ := h.db.ListVendors()
 		lastCheck, _ := h.db.GetLastExpenseCheckNumber()
-		h.render(w, "expenses_form.html", map[string]interface{}{
+		h.render(w, r, "expenses_form.html", map[string]interface{}{
 			"Title":           "New Expense",
 			"Active":          "expenses",
 			"Expense":         expense,
@@ -493,7 +528,7 @@ func (h *Handler) ExpensesEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	vendors, _ := h.db.ListVendors()
 	lastCheck, _ := h.db.GetLastExpenseCheckNumber()
-	h.render(w, "expenses_form.html", map[string]interface{}{
+	h.render(w, r, "expenses_form.html", map[string]interface{}{
 		"Title":           "Edit Expense",
 		"Active":          "expenses",
 		"Expense":         expense,
@@ -517,6 +552,7 @@ func (h *Handler) ExpensesUpdate(w http.ResponseWriter, r *http.Request) {
 		PaymentType:   r.FormValue("payment_type"),
 		CheckNumber:   r.FormValue("check_number"),
 		DateOpened:    r.FormValue("date_opened"),
+		DueDate:       r.FormValue("due_date"),
 		DatePaid:      r.FormValue("date_paid"),
 		Notes:         r.FormValue("notes"),
 	}
@@ -525,7 +561,7 @@ func (h *Handler) ExpensesUpdate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		vendors, _ := h.db.ListVendors()
 		lastCheck, _ := h.db.GetLastExpenseCheckNumber()
-		h.render(w, "expenses_form.html", map[string]interface{}{
+		h.render(w, r, "expenses_form.html", map[string]interface{}{
 			"Title":           "Edit Expense",
 			"Active":          "expenses",
 			"Expense":         expense,
@@ -538,14 +574,27 @@ func (h *Handler) ExpensesUpdate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/expenses", http.StatusFound)
 }
 
-func (h *Handler) ExpensesPay(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ExpensesPayForm(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	h.db.MarkExpensePaid(id)
-	referer := r.Header.Get("Referer")
-	if referer != "" && referer == "/" {
-		http.Redirect(w, r, "/", http.StatusFound)
+	expense, err := h.db.GetExpense(id)
+	if err != nil {
+		http.Redirect(w, r, "/expenses", http.StatusFound)
 		return
 	}
+	lastCheck, _ := h.db.GetLastExpenseCheckNumber()
+	h.render(w, r, "expenses_pay.html", map[string]interface{}{
+		"Title":           "Mark Expense Paid",
+		"Active":          "expenses",
+		"Expense":         expense,
+		"LastCheckNumber": lastCheck,
+	})
+}
+
+func (h *Handler) ExpensesPay(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	paymentType := r.FormValue("payment_type")
+	checkNumber := r.FormValue("check_number")
+	h.db.MarkExpensePaid(id, paymentType, checkNumber)
 	http.Redirect(w, r, "/expenses", http.StatusFound)
 }
 
@@ -556,30 +605,149 @@ func (h *Handler) ExpensesDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 // Payroll handlers
-func (h *Handler) PayrollList(w http.ResponseWriter, r *http.Request) {
-	employeeID, _ := strconv.ParseInt(r.URL.Query().Get("employee_id"), 10, 64)
-	filter := models.PayrollFilter{
-		StartDate:  r.URL.Query().Get("start_date"),
-		EndDate:    r.URL.Query().Get("end_date"),
-		Status:     r.URL.Query().Get("status"),
-		EmployeeID: employeeID,
+
+// getWeekBounds calculates the Monday and Sunday for a given date
+func getWeekBounds(date time.Time) (string, string) {
+	// Find Monday of the week
+	weekday := int(date.Weekday())
+	if weekday == 0 {
+		weekday = 7 // Sunday = 7
 	}
-	payrolls, total, _ := h.db.ListPayroll(filter)
-	employees, _ := h.db.ListEmployees(true)
-	h.render(w, "payroll_list.html", map[string]interface{}{
-		"Title":     "Payroll",
-		"Active":    "payroll",
-		"Payrolls":  payrolls,
-		"Total":     total,
-		"Employees": employees,
-		"Filter":    filter,
+	monday := date.AddDate(0, 0, -(weekday - 1))
+	sunday := monday.AddDate(0, 0, 6)
+	return monday.Format("2006-01-02"), sunday.Format("2006-01-02")
+}
+
+func (h *Handler) PayrollList(w http.ResponseWriter, r *http.Request) {
+	weeks, err := h.db.ListPayrollWeeks(50)
+	if err != nil {
+		logger.FromContext(r.Context()).Error("payroll_weeks_error", "error", err.Error())
+	}
+
+	h.render(w, r, "payroll_list.html", map[string]any{
+		"Title":  "Payroll",
+		"Active": "payroll",
+		"Weeks":  weeks,
+	})
+}
+
+func (h *Handler) PayrollWeekNew(w http.ResponseWriter, r *http.Request) {
+	// Default to current week
+	weekStart, weekEnd := getWeekBounds(time.Now())
+
+	entries, total, _ := h.db.GetWeeklyPayroll(weekStart, weekEnd)
+	lastCheck, _ := h.db.GetLastPayrollCheckNumber()
+
+	// Format dates for display
+	weekStartDate, _ := time.Parse("2006-01-02", weekStart)
+	weekEndDate, _ := time.Parse("2006-01-02", weekEnd)
+	weekStartDisplay := weekStartDate.Format("Jan 2")
+	weekEndDisplay := weekEndDate.Format("Jan 2, 2006")
+
+	h.render(w, r, "payroll_week_edit.html", map[string]any{
+		"Title":           "New Payroll Week",
+		"Active":          "payroll",
+		"Entries":         entries,
+		"Total":           total,
+		"WeekStart":       weekStart,
+		"WeekEnd":         weekEnd,
+		"WeekDisplay":     weekStartDisplay + " - " + weekEndDisplay,
+		"LastCheckNumber": lastCheck,
+	})
+}
+
+func (h *Handler) PayrollWeekEdit(w http.ResponseWriter, r *http.Request) {
+	weekIDStr := r.PathValue("id")
+	weekID, err := strconv.ParseInt(weekIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid week ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get the week details
+	week, err := h.db.GetPayrollWeek(weekID)
+	if err != nil {
+		http.Error(w, "Week not found", http.StatusNotFound)
+		return
+	}
+
+	entries, total, _ := h.db.GetWeeklyPayrollByWeekID(weekID)
+	lastCheck, _ := h.db.GetLastPayrollCheckNumber()
+
+	// Format dates for display
+	weekStartDate, _ := time.Parse("2006-01-02", week.PeriodStart)
+	weekEndDate, _ := time.Parse("2006-01-02", week.PeriodEnd)
+	weekStartDisplay := weekStartDate.Format("Jan 2")
+	weekEndDisplay := weekEndDate.Format("Jan 2, 2006")
+
+	h.render(w, r, "payroll_week_edit.html", map[string]any{
+		"Title":           "Edit Payroll - " + weekEndDisplay,
+		"Active":          "payroll",
+		"Entries":         entries,
+		"Total":           total,
+		"WeekID":          weekID,
+		"WeekStart":       week.PeriodStart,
+		"WeekEnd":         week.PeriodEnd,
+		"WeekDisplay":     weekStartDisplay + " - " + weekEndDisplay,
+		"LastCheckNumber": lastCheck,
+	})
+}
+
+func (h *Handler) PayrollWeekDetail(w http.ResponseWriter, r *http.Request) {
+	weekIDStr := r.PathValue("id")
+	weekID, err := strconv.ParseInt(weekIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid week ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get the week details
+	week, err := h.db.GetPayrollWeek(weekID)
+	if err != nil {
+		http.Error(w, "Week not found", http.StatusNotFound)
+		return
+	}
+
+	entries, total, _ := h.db.GetWeeklyPayrollByWeekID(weekID)
+	lastCheck, _ := h.db.GetLastPayrollCheckNumber()
+
+	// Format dates for display (handle both "2006-01-02" and "2006-01-02T15:04:05Z" formats)
+	weekStartDate, err := time.Parse("2006-01-02", week.PeriodStart)
+	if err != nil {
+		weekStartDate, err = time.Parse(time.RFC3339, week.PeriodStart)
+		if err != nil {
+			http.Error(w, "Invalid period start date: "+week.PeriodStart, http.StatusInternalServerError)
+			return
+		}
+	}
+	weekEndDate, err := time.Parse("2006-01-02", week.PeriodEnd)
+	if err != nil {
+		weekEndDate, err = time.Parse(time.RFC3339, week.PeriodEnd)
+		if err != nil {
+			http.Error(w, "Invalid period end date: "+week.PeriodEnd, http.StatusInternalServerError)
+			return
+		}
+	}
+	weekStartDisplay := weekStartDate.Format("Jan 2")
+	weekEndDisplay := weekEndDate.Format("Jan 2, 2006")
+
+	h.render(w, r, "payroll_detail.html", map[string]interface{}{
+		"Title":           "Payroll - " + weekStartDisplay + " to " + weekEndDisplay,
+		"Active":          "payroll",
+		"Entries":         entries,
+		"Total":           total,
+		"WeekID":          weekID,
+		"WeekStart":       week.PeriodStart,
+		"WeekEnd":         week.PeriodEnd,
+		"WeekDisplay":     weekStartDisplay + " - " + weekEndDisplay,
+		"LastCheckNumber": lastCheck,
 	})
 }
 
 func (h *Handler) PayrollNew(w http.ResponseWriter, r *http.Request) {
 	employees, _ := h.db.ListEmployees(true)
 	lastCheck, _ := h.db.GetLastPayrollCheckNumber()
-	h.render(w, "payroll_form.html", map[string]interface{}{
+	h.render(w, r, "payroll_form.html", map[string]interface{}{
 		"Title":           "New Payroll",
 		"Active":          "payroll",
 		"Payroll":         models.Payroll{},
@@ -610,7 +778,7 @@ func (h *Handler) PayrollCreate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		employees, _ := h.db.ListEmployees(true)
 		lastCheck, _ := h.db.GetLastPayrollCheckNumber()
-		h.render(w, "payroll_form.html", map[string]interface{}{
+		h.render(w, r, "payroll_form.html", map[string]interface{}{
 			"Title":           "New Payroll",
 			"Active":          "payroll",
 			"Payroll":         payroll,
@@ -632,7 +800,7 @@ func (h *Handler) PayrollEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	employees, _ := h.db.ListEmployees(true)
 	lastCheck, _ := h.db.GetLastPayrollCheckNumber()
-	h.render(w, "payroll_form.html", map[string]interface{}{
+	h.render(w, r, "payroll_form.html", map[string]interface{}{
 		"Title":           "Edit Payroll",
 		"Active":          "payroll",
 		"Payroll":         payroll,
@@ -665,7 +833,7 @@ func (h *Handler) PayrollUpdate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		employees, _ := h.db.ListEmployees(true)
 		lastCheck, _ := h.db.GetLastPayrollCheckNumber()
-		h.render(w, "payroll_form.html", map[string]interface{}{
+		h.render(w, r, "payroll_form.html", map[string]interface{}{
 			"Title":           "Edit Payroll",
 			"Active":          "payroll",
 			"Payroll":         payroll,
@@ -680,17 +848,43 @@ func (h *Handler) PayrollUpdate(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) PayrollPay(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	h.db.MarkPayrollPaid(id)
-	referer := r.Header.Get("Referer")
-	if referer != "" && referer == "/" {
-		http.Redirect(w, r, "/", http.StatusFound)
+	paymentMethod := r.FormValue("payment_method")
+	checkNumber := r.FormValue("check_number")
+	week := r.FormValue("week")
+
+	h.db.MarkPayrollPaidWithDetails(id, paymentMethod, checkNumber)
+
+	if week != "" {
+		http.Redirect(w, r, "/payroll?week="+week, http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, "/payroll", http.StatusFound)
 }
 
+func (h *Handler) PayrollSaveHours(w http.ResponseWriter, r *http.Request) {
+	weekStart := r.FormValue("week_start")
+	weekEnd := r.FormValue("week_end")
+
+	// Get all active employees to process their hours
+	employees, _ := h.db.ListEmployees(true)
+	for _, emp := range employees {
+		hoursStr := r.FormValue(fmt.Sprintf("hours_%d", emp.ID))
+		hours, _ := strconv.ParseFloat(hoursStr, 64)
+		if hours > 0 {
+			h.db.UpsertWeeklyPayroll(emp.ID, weekStart, weekEnd, hours, emp.HourlyRate, emp.PaymentMethod)
+		}
+	}
+
+	http.Redirect(w, r, "/payroll", http.StatusFound)
+}
+
 func (h *Handler) PayrollDelete(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	week := r.FormValue("week")
 	h.db.DeletePayroll(id)
+	if week != "" {
+		http.Redirect(w, r, "/payroll?week="+week, http.StatusFound)
+		return
+	}
 	http.Redirect(w, r, "/payroll", http.StatusFound)
 }

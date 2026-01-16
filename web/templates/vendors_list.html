@@ -17,7 +17,7 @@
 	<thead>
 		<tr>
 			<th>Name</th>
-			<th>Category</th>
+			<th>Categories</th>
 			<th class="hide-mobile">Description</th>
 			<th class="actions"></th>
 		</tr>
@@ -25,10 +25,17 @@
 	<tbody>
 		{{range .Vendors}}
 		<tr>
-			<td>{{.Name}}</td>
-			<td>{{.Category}}</td>
+			<td><a href="/vendors/{{.ID}}">{{.Name}}</a></td>
+			<td>
+				{{range .CategoryList}}
+				<span class="category-tag">{{.}}</span>
+				{{else}}
+				<span class="text-muted">-</span>
+				{{end}}
+			</td>
 			<td class="hide-mobile">{{.Description}}</td>
 			<td class="actions">
+				<a href="/vendors/{{.ID}}" class="btn btn-secondary btn-small">View</a>
 				<a href="/vendors/{{.ID}}/edit" class="btn btn-secondary btn-small">Edit</a>
 			</td>
 		</tr>

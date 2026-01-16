@@ -10,7 +10,7 @@ import (
 
 func (db *DB) ListSales(filter models.SalesFilter) ([]models.DailySale, error) {
 	query := `
-		SELECT id, strftime('%m-%d-%Y', date), shift, net_sales, taxes, credit_card, cash_receipt, cash_on_hand, notes, created_at, updated_at
+		SELECT id, strftime('%m-%d-%Y', date), shift, net_sales, taxes, credit_card, cash_receipt, cash_on_hand, notes
 		FROM daily_sales
 		WHERE 1=1
 	`
@@ -36,7 +36,7 @@ func (db *DB) ListSales(filter models.SalesFilter) ([]models.DailySale, error) {
 	var sales []models.DailySale
 	for rows.Next() {
 		var s models.DailySale
-		if err := rows.Scan(&s.ID, &s.Date, &s.Shift, &s.NetSales, &s.Taxes, &s.CreditCard, &s.CashReceipt, &s.CashOnHand, &s.Notes, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.Date, &s.Shift, &s.NetSales, &s.Taxes, &s.CreditCard, &s.CashReceipt, &s.CashOnHand, &s.Notes); err != nil {
 			return nil, fmt.Errorf("scan sale: %w", err)
 		}
 		sales = append(sales, s)
@@ -46,7 +46,7 @@ func (db *DB) ListSales(filter models.SalesFilter) ([]models.DailySale, error) {
 
 func (db *DB) ListRecentSales(days int) ([]models.DailySale, error) {
 	rows, err := db.Query(`
-		SELECT id, strftime('%m-%d-%Y', date), shift, net_sales, taxes, credit_card, cash_receipt, cash_on_hand, notes, created_at, updated_at
+		SELECT id, strftime('%m-%d-%Y', date), shift, net_sales, taxes, credit_card, cash_receipt, cash_on_hand, notes
 		FROM daily_sales
 		WHERE date >= date('now', '-' || ? || ' days')
 		ORDER BY date(date) DESC, CASE shift WHEN 'dinner' THEN 1 WHEN 'lunch' THEN 2 WHEN 'breakfast' THEN 3 END
@@ -59,7 +59,7 @@ func (db *DB) ListRecentSales(days int) ([]models.DailySale, error) {
 	var sales []models.DailySale
 	for rows.Next() {
 		var s models.DailySale
-		if err := rows.Scan(&s.ID, &s.Date, &s.Shift, &s.NetSales, &s.Taxes, &s.CreditCard, &s.CashReceipt, &s.CashOnHand, &s.Notes, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.Date, &s.Shift, &s.NetSales, &s.Taxes, &s.CreditCard, &s.CashReceipt, &s.CashOnHand, &s.Notes); err != nil {
 			return nil, fmt.Errorf("scan sale: %w", err)
 		}
 		sales = append(sales, s)
@@ -70,7 +70,7 @@ func (db *DB) ListRecentSales(days int) ([]models.DailySale, error) {
 // ListRecentSalesGrouped returns recent sales grouped by date for dashboard display
 func (db *DB) ListRecentSalesGrouped(days int) ([]models.DateGroup, float64, error) {
 	rows, err := db.Query(`
-		SELECT id, date(date), strftime('%m-%d-%Y', date), shift, net_sales, taxes, credit_card, cash_receipt, cash_on_hand, notes, created_at, updated_at
+		SELECT id, date(date), strftime('%m-%d-%Y', date), shift, net_sales, taxes, credit_card, cash_receipt, cash_on_hand, notes
 		FROM daily_sales
 		WHERE date >= date('now', '-' || ? || ' days')
 		ORDER BY date(date) DESC, CASE shift WHEN 'dinner' THEN 1 WHEN 'lunch' THEN 2 WHEN 'breakfast' THEN 3 END
@@ -87,7 +87,7 @@ func (db *DB) ListRecentSalesGrouped(days int) ([]models.DateGroup, float64, err
 	for rows.Next() {
 		var s models.DailySale
 		var rawDate string
-		if err := rows.Scan(&s.ID, &rawDate, &s.Date, &s.Shift, &s.NetSales, &s.Taxes, &s.CreditCard, &s.CashReceipt, &s.CashOnHand, &s.Notes, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &rawDate, &s.Date, &s.Shift, &s.NetSales, &s.Taxes, &s.CreditCard, &s.CashReceipt, &s.CashOnHand, &s.Notes); err != nil {
 			return nil, 0, fmt.Errorf("scan sale: %w", err)
 		}
 
@@ -143,10 +143,10 @@ func (db *DB) ListRecentSalesGrouped(days int) ([]models.DateGroup, float64, err
 func (db *DB) GetSale(id int64) (models.DailySale, error) {
 	var s models.DailySale
 	err := db.QueryRow(`
-		SELECT id, date(date), shift, net_sales, taxes, credit_card, cash_receipt, cash_on_hand, notes, created_at, updated_at
+		SELECT id, date(date), shift, net_sales, taxes, credit_card, cash_receipt, cash_on_hand, notes
 		FROM daily_sales
 		WHERE id = ?
-	`, id).Scan(&s.ID, &s.Date, &s.Shift, &s.NetSales, &s.Taxes, &s.CreditCard, &s.CashReceipt, &s.CashOnHand, &s.Notes, &s.CreatedAt, &s.UpdatedAt)
+	`, id).Scan(&s.ID, &s.Date, &s.Shift, &s.NetSales, &s.Taxes, &s.CreditCard, &s.CashReceipt, &s.CashOnHand, &s.Notes)
 	if err == sql.ErrNoRows {
 		return s, fmt.Errorf("sale not found")
 	}
@@ -196,6 +196,16 @@ func (db *DB) DeleteSale(id int64) error {
 	return nil
 }
 
+// GetTodaySalesTotal returns the total net sales for today
+func (db *DB) GetTodaySalesTotal() (float64, error) {
+	var total sql.NullFloat64
+	err := db.QueryRow(`SELECT SUM(net_sales) FROM daily_sales WHERE date = date('now')`).Scan(&total)
+	if err != nil {
+		return 0, fmt.Errorf("query today sales total: %w", err)
+	}
+	return total.Float64, nil
+}
+
 // GetShiftsForDate returns the shifts that already have entries for a given date
 func (db *DB) GetShiftsForDate(date string) ([]string, error) {
 	rows, err := db.Query(`SELECT shift FROM daily_sales WHERE date = ?`, date)
@@ -242,7 +252,7 @@ func addToDateGroup(group *models.SalesGroup, sale models.DailySale, rawDate, di
 func (db *DB) ListSalesGrouped() (*models.GroupedSalesData, error) {
 	// Query all sales with raw date for grouping and formatted date for display
 	rows, err := db.Query(`
-		SELECT id, date(date), strftime('%m-%d-%Y', date), shift, net_sales, taxes, credit_card, cash_receipt, cash_on_hand, notes, created_at, updated_at
+		SELECT id, date(date), strftime('%m-%d-%Y', date), shift, net_sales, taxes, credit_card, cash_receipt, cash_on_hand, notes
 		FROM daily_sales
 		ORDER BY date(date) DESC, CASE shift WHEN 'dinner' THEN 1 WHEN 'lunch' THEN 2 WHEN 'breakfast' THEN 3 END
 	`)
@@ -276,7 +286,7 @@ func (db *DB) ListSalesGrouped() (*models.GroupedSalesData, error) {
 	for rows.Next() {
 		var s models.DailySale
 		var rawDate string
-		if err := rows.Scan(&s.ID, &rawDate, &s.Date, &s.Shift, &s.NetSales, &s.Taxes, &s.CreditCard, &s.CashReceipt, &s.CashOnHand, &s.Notes, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &rawDate, &s.Date, &s.Shift, &s.NetSales, &s.Taxes, &s.CreditCard, &s.CashReceipt, &s.CashOnHand, &s.Notes); err != nil {
 			return nil, fmt.Errorf("scan sale: %w", err)
 		}
 
@@ -381,7 +391,7 @@ func (db *DB) ListSalesGrouped() (*models.GroupedSalesData, error) {
 		return nil, fmt.Errorf("fetch delivery sales: %w", err)
 	}
 
-	// Attach delivery data to Today (create a synthetic DateGroup for today's delivery)
+	// Attach delivery data to Today
 	if delivery, ok := deliveryMap[today]; ok {
 		result.Today.Delivery = delivery
 	}

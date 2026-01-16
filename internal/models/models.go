@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // VendorCategories is the list of available vendor categories
 var VendorCategories = []string{
@@ -29,9 +32,30 @@ var VendorCategories = []string{
 type Vendor struct {
 	ID          int64
 	Name        string
-	Category    string
+	Category    string // comma-separated list of categories
 	Description string
 	CreatedAt   time.Time
+}
+
+// HasCategory checks if the vendor has a specific category
+func (v Vendor) HasCategory(cat string) bool {
+	if v.Category == "" {
+		return false
+	}
+	for _, c := range strings.Split(v.Category, ",") {
+		if c == cat {
+			return true
+		}
+	}
+	return false
+}
+
+// CategoryList returns categories as a slice
+func (v Vendor) CategoryList() []string {
+	if v.Category == "" {
+		return nil
+	}
+	return strings.Split(v.Category, ",")
 }
 
 type Employee struct {
@@ -112,18 +136,28 @@ type Expense struct {
 	PaymentType   string // "cash", "check", "debit", "credit"
 	CheckNumber   string
 	DateOpened    string // YYYY-MM-DD or empty
+	DueDate       string // YYYY-MM-DD or empty
 	DatePaid      string // YYYY-MM-DD or empty
 	Notes         string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
 
+// PayrollWeek represents a payroll period (Monday-Sunday)
+type PayrollWeek struct {
+	ID          int64
+	PeriodStart string // YYYY-MM-DD (Monday)
+	PeriodEnd   string // YYYY-MM-DD (Sunday)
+	CreatedAt   time.Time
+}
+
 type Payroll struct {
 	ID            int64
+	WeekID        int64  // references payroll_weeks.id
 	EmployeeID    int64
 	EmployeeName  string // populated by JOIN
-	PeriodStart   string // YYYY-MM-DD
-	PeriodEnd     string // YYYY-MM-DD
+	PeriodStart   string // YYYY-MM-DD - populated by JOIN with payroll_weeks
+	PeriodEnd     string // YYYY-MM-DD - populated by JOIN with payroll_weeks
 	TotalHours    float64
 	HourlyRate    float64
 	PaymentMethod string // "cash" or "check"
@@ -140,6 +174,30 @@ func (p Payroll) TotalPay() float64 {
 	return p.TotalHours * p.HourlyRate
 }
 
+// WeeklyPayrollEntry combines an employee with their payroll for a specific week
+type WeeklyPayrollEntry struct {
+	Employee Employee
+	Payroll  *Payroll // nil if no payroll entry exists for this employee this week
+}
+
+// PayrollWeekSummary represents a summary of a payroll week
+type PayrollWeekSummary struct {
+	WeekID             int64
+	PeriodStart        string
+	PeriodEnd          string
+	PeriodStartDisplay string
+	PeriodEndDisplay   string
+	EmployeeCount      int
+	TotalHours         float64
+	TotalPay           float64
+	PaidCount          int
+}
+
+// AllPaid returns true if all employees are paid for this week
+func (p PayrollWeekSummary) AllPaid() bool {
+	return p.PaidCount == p.EmployeeCount
+}
+
 type Session struct {
 	Token     string
 	CreatedAt time.Time
@@ -148,22 +206,32 @@ type Session struct {
 
 // Dashboard aggregates
 type DashboardData struct {
+	TodaySalesTotal      float64
+	TodayExpensesTotal   float64
 	UnpaidExpensesTotal  float64
 	UnpaidExpensesCount  int
-	UnpaidPayrollTotal   float64
-	UnpaidPayrollCount   int
 	RecentSalesGrouped   []DateGroup
 	RecentSalesTotal     float64
 	UnpaidExpenses       []Expense
-	UnpaidPayroll        []Payroll
 }
 
 // Filter structs for list queries
 type ExpenseFilter struct {
-	StartDate string
-	EndDate   string
-	Status    string
-	VendorID  int64
+	StartDate  string
+	EndDate    string
+	Status     string
+	VendorID   int64
+	Categories []string // filter by vendor categories (multi-select)
+}
+
+// HasCategory checks if a category is in the filter
+func (f ExpenseFilter) HasCategory(cat string) bool {
+	for _, c := range f.Categories {
+		if c == cat {
+			return true
+		}
+	}
+	return false
 }
 
 type PayrollFilter struct {

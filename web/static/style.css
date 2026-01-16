@@ -197,9 +197,12 @@ nav .logout-btn {
 /* Tables */
 table {
 	width: 100%;
-	border-collapse: collapse;
+	border-collapse: separate;
+	border-spacing: 0;
 	background: var(--surface);
 	font-size: 0.95rem;
+	border: 1px solid var(--border);
+	border-radius: 6px;
 }
 
 th, td {
@@ -426,6 +429,51 @@ button,
 	border-color: #ccc;
 }
 
+/* Multi-select category toggles (checkbox-based) */
+.category-toggles {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+}
+
+.category-toggles input[type="checkbox"] {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.category-toggles label {
+	display: inline-block;
+	padding: 0.5rem 0.75rem;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	cursor: pointer;
+	font-weight: 500;
+	font-size: 0.9rem;
+	transition: all 0.15s;
+	margin: 0;
+}
+
+.category-toggles label:hover {
+	border-color: var(--primary);
+}
+
+.category-toggles input[type="checkbox"]:checked + label {
+	background: var(--primary);
+	border-color: var(--primary);
+	color: white;
+}
+
+.category-toggles input[type="checkbox"]:focus + label {
+	box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+/* Allow wrapping for toggle groups */
+.toggle-group {
+	flex-wrap: wrap;
+}
+
 /* Filter bar */
 .filter-bar {
 	display: flex;
@@ -449,6 +497,88 @@ button,
 	max-width: 150px;
 }
 
+/* Filter box (enhanced filter layout) */
+.filter-box {
+	display: block;
+	width: 100%;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	padding: 1rem;
+	margin-bottom: 1rem;
+	box-sizing: border-box;
+}
+
+.filter-row {
+	display: flex;
+	gap: 1rem;
+	align-items: flex-end;
+	flex-wrap: wrap;
+	margin-bottom: 1rem;
+}
+
+.filter-row:last-child {
+	margin-bottom: 0;
+}
+
+.filter-box .form-group {
+	margin-bottom: 0;
+	flex: 1 1 0;
+	min-width: 150px;
+}
+
+.filter-box .form-group.full-width {
+	flex: 1 1 100%;
+	min-width: 100%;
+}
+
+.filter-actions {
+	display: flex;
+	gap: 0.5rem;
+	padding-top: 1rem;
+	border-top: 1px solid var(--border);
+	margin-top: 1rem;
+}
+
+/* Toggle group (for radio buttons styled as toggles) */
+.toggle-group {
+	display: inline-flex;
+}
+
+.toggle-group input[type="radio"] {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.toggle-group label {
+	display: inline-block;
+	padding: 0.5rem 0.75rem;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	cursor: pointer;
+	font-size: 0.9rem;
+	margin: 0;
+	margin-left: -1px;
+}
+
+.toggle-group label:first-of-type {
+	border-radius: 4px 0 0 4px;
+	margin-left: 0;
+}
+
+.toggle-group label:last-of-type {
+	border-radius: 0 4px 4px 0;
+}
+
+.toggle-group input[type="radio"]:checked + label {
+	background: var(--primary);
+	border-color: var(--primary);
+	color: white;
+	position: relative;
+	z-index: 1;
+}
+
 /* Page header */
 .page-header {
 	display: flex;
@@ -462,6 +592,11 @@ button,
 .page-header h1 {
 	margin: 0;
 	font-size: 1.5rem;
+}
+
+.page-header-actions {
+	display: flex;
+	gap: 0.5rem;
 }
 
 /* Totals row */
@@ -513,6 +648,184 @@ button,
 	color: var(--text-muted);
 }
 
+/* Category tags */
+.category-tag {
+	display: inline-block;
+	padding: 0.2rem 0.5rem;
+	background: var(--bg);
+	border: 1px solid var(--border);
+	border-radius: 3px;
+	font-size: 0.8rem;
+	margin: 0.1rem;
+}
+
+.text-muted {
+	color: var(--text-muted);
+}
+
+/* Vendor detail page */
+.vendor-details {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	padding: 1rem;
+	margin-bottom: 1rem;
+}
+
+.vendor-description {
+	margin: 0 0 0.5rem 0;
+	color: var(--text-muted);
+}
+
+.vendor-categories {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+}
+
+/* Expense summary (payment page) */
+.expense-summary {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	padding: 1rem;
+	margin-bottom: 1.5rem;
+}
+
+.expense-summary p {
+	margin: 0.25rem 0;
+}
+
+/* Sidebar layout */
+.sidebar-layout {
+	display: flex;
+	gap: 1.5rem;
+	align-items: flex-start;
+}
+
+.sidebar {
+	flex: 0 0 220px;
+	position: sticky;
+	top: 70px;
+}
+
+.sidebar-filter {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	padding: 1rem;
+	max-width: none;
+}
+
+.sidebar-title {
+	margin: 0 0 1rem 0;
+	font-size: 1rem;
+	font-weight: 600;
+}
+
+.sidebar-filter .form-group {
+	margin-bottom: 0.75rem;
+}
+
+.sidebar-filter label {
+	font-size: 0.85rem;
+}
+
+.sidebar-filter input,
+.sidebar-filter select {
+	font-size: 0.9rem;
+	padding: 0.5rem;
+}
+
+.sidebar-toggle-group {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+.sidebar-toggle-group input[type="radio"] {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.sidebar-toggle-group label {
+	display: block;
+	padding: 0.4rem 0.6rem;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 0.85rem;
+	margin: 0;
+	transition: all 0.15s;
+}
+
+.sidebar-toggle-group label:hover {
+	border-color: var(--primary);
+}
+
+.sidebar-toggle-group input[type="radio"]:checked + label {
+	background: var(--primary);
+	border-color: var(--primary);
+	color: white;
+}
+
+.sidebar-category-toggles {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	max-height: 200px;
+	overflow-y: auto;
+}
+
+.sidebar-category-toggles input[type="checkbox"] {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.sidebar-category-toggles label {
+	display: block;
+	padding: 0.4rem 0.6rem;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 0.85rem;
+	margin: 0;
+	transition: all 0.15s;
+}
+
+.sidebar-category-toggles label:hover {
+	border-color: var(--primary);
+}
+
+.sidebar-category-toggles input[type="checkbox"]:checked + label {
+	background: var(--primary);
+	border-color: var(--primary);
+	color: white;
+}
+
+.sidebar-actions {
+	display: flex;
+	gap: 0.5rem;
+	margin-top: 1rem;
+	padding-top: 1rem;
+	border-top: 1px solid var(--border);
+}
+
+.sidebar-actions .btn {
+	flex: 1;
+	padding: 0.5rem;
+	font-size: 0.9rem;
+}
+
+.main-content {
+	flex: 1;
+	min-width: 0;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
 	nav .nav-inner {
@@ -547,6 +860,45 @@ button,
 
 	.filter-bar .form-group {
 		width: 100%;
+	}
+
+	.filter-row {
+		flex-wrap: wrap;
+	}
+
+	.filter-box .form-group {
+		flex: 1 1 100%;
+	}
+
+	.toggle-group {
+		flex-wrap: wrap;
+	}
+
+	.category-toggles {
+		max-height: 150px;
+		overflow-y: auto;
+	}
+
+	/* Sidebar collapses to top on mobile */
+	.sidebar-layout {
+		flex-direction: column;
+	}
+
+	.sidebar {
+		flex: none;
+		width: 100%;
+		position: static;
+	}
+
+	.sidebar-category-toggles {
+		flex-direction: row;
+		flex-wrap: wrap;
+		max-height: none;
+	}
+
+	.sidebar-toggle-group {
+		flex-direction: row;
+		flex-wrap: wrap;
 	}
 }
 
@@ -651,6 +1003,78 @@ button,
 .date-row-content table {
 	margin: 0;
 	border: none;
+}
+
+/* Week navigation */
+.week-nav {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
+	margin-bottom: 1rem;
+	padding: 0.75rem;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+}
+
+.week-display {
+	font-weight: 600;
+	font-size: 1.1rem;
+	min-width: 200px;
+	text-align: center;
+}
+
+/* Hours input */
+.hours-col {
+	width: 100px;
+}
+
+.hours-input {
+	width: 80px;
+	padding: 0.4rem;
+	text-align: center;
+}
+
+/* Payroll actions */
+.payroll-actions {
+	margin-top: 1rem;
+}
+
+/* Modal */
+.modal {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+}
+
+.modal-content {
+	background: var(--surface);
+	border-radius: 8px;
+	padding: 1.5rem;
+	min-width: 300px;
+	max-width: 400px;
+}
+
+.modal-content h3 {
+	margin: 0 0 1rem 0;
+}
+
+.modal-content form {
+	max-width: none;
+}
+
+.modal-actions {
+	display: flex;
+	gap: 0.5rem;
+	margin-top: 1rem;
 }
 
 /* Print styles */

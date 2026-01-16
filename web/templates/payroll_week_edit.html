@@ -1,0 +1,134 @@
+{{template "header" .}}
+<div class="page-header">
+	<h1>Payroll: {{.WeekDisplay}}</h1>
+	<a href="/payroll" class="btn btn-secondary">Back to Payroll</a>
+</div>
+
+<form action="/payroll/save" method="POST">
+	<input type="hidden" name="week_start" value="{{.WeekStart}}">
+	<input type="hidden" name="week_end" value="{{.WeekEnd}}">
+
+	<table>
+		<thead>
+			<tr>
+				<th>Employee</th>
+				<th class="money">Rate</th>
+				<th class="hours-col">Hours</th>
+				<th class="money">Total</th>
+				<th>Status</th>
+				<th class="actions"></th>
+			</tr>
+		</thead>
+		<tbody>
+			{{range .Entries}}
+			<tr>
+				<td>{{.Employee.Name}}</td>
+				<td class="money">${{printf "%.2f" .Employee.HourlyRate}}</td>
+				<td class="hours-col">
+					{{if .Payroll}}
+						{{if eq .Payroll.Status "paid"}}
+							{{printf "%.1f" .Payroll.TotalHours}}
+						{{else}}
+							<input type="number" name="hours_{{.Employee.ID}}" value="{{printf "%.1f" .Payroll.TotalHours}}" step="0.25" min="0" class="hours-input">
+						{{end}}
+					{{else}}
+						<input type="number" name="hours_{{.Employee.ID}}" value="" step="0.25" min="0" placeholder="0" class="hours-input">
+					{{end}}
+				</td>
+				<td class="money">
+					{{if .Payroll}}
+						${{printf "%.2f" .Payroll.TotalPay}}
+					{{else}}
+						-
+					{{end}}
+				</td>
+				<td>
+					{{if .Payroll}}
+						{{if eq .Payroll.Status "paid"}}
+							<span class="status status-paid">Paid</span>
+						{{else}}
+							<span class="status status-unpaid">Unpaid</span>
+						{{end}}
+					{{else}}
+						<span class="text-muted">-</span>
+					{{end}}
+				</td>
+				<td class="actions">
+					{{if .Payroll}}
+						{{if eq .Payroll.Status "not_paid"}}
+							<button type="button" class="btn btn-success btn-small" onclick="showPayModal({{.Payroll.ID}}, '{{.Employee.Name}}', '{{.Employee.PaymentMethod}}')">Pay</button>
+						{{end}}
+					{{end}}
+				</td>
+			</tr>
+			{{end}}
+			{{if .Entries}}
+			<tr class="totals-row">
+				<td colspan="3">Total</td>
+				<td class="money">${{printf "%.2f" .Total}}</td>
+				<td colspan="2"></td>
+			</tr>
+			{{end}}
+		</tbody>
+	</table>
+
+	{{if .Entries}}
+	<div class="payroll-actions">
+		<button type="submit" class="btn btn-primary">Save Hours</button>
+	</div>
+	{{end}}
+</form>
+
+{{if not .Entries}}
+<p class="empty-state">No active employees. Add employees first.</p>
+{{end}}
+
+<div id="payModal" class="modal" style="display:none">
+	<div class="modal-content">
+		<h3>Mark <span id="payModalName"></span> Paid</h3>
+		<form id="payForm" method="POST">
+			<input type="hidden" name="week" value="{{.WeekStart}}">
+			<div class="form-group">
+				<label for="pay_method">Payment Method</label>
+				<select id="pay_method" name="payment_method" required>
+					<option value="cash">Cash</option>
+					<option value="check">Check</option>
+				</select>
+			</div>
+			<div class="form-group" id="checkNumberGroup" style="display:none">
+				<label for="pay_check_number">Check Number{{if .LastCheckNumber}} (Last: {{.LastCheckNumber}}){{end}}</label>
+				<input type="text" id="pay_check_number" name="check_number">
+			</div>
+			<div class="modal-actions">
+				<button type="submit" class="btn btn-success">Mark Paid</button>
+				<button type="button" class="btn btn-secondary" onclick="hidePayModal()">Cancel</button>
+			</div>
+		</form>
+	</div>
+</div>
+
+<script>
+function showPayModal(id, name, defaultMethod) {
+	document.getElementById('payModalName').textContent = name;
+	document.getElementById('payForm').action = '/payroll/entry/' + id + '/pay';
+	document.getElementById('pay_method').value = defaultMethod;
+	toggleCheckNumber();
+	document.getElementById('payModal').style.display = 'flex';
+}
+
+function hidePayModal() {
+	document.getElementById('payModal').style.display = 'none';
+}
+
+function toggleCheckNumber() {
+	var method = document.getElementById('pay_method').value;
+	document.getElementById('checkNumberGroup').style.display = method === 'check' ? 'block' : 'none';
+}
+
+document.getElementById('pay_method').addEventListener('change', toggleCheckNumber);
+
+document.getElementById('payModal').addEventListener('click', function(e) {
+	if (e.target === this) hidePayModal();
+});
+</script>
+{{template "footer" .}}

@@ -1,13 +1,17 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
+
+	"homebooks/internal/logger"
 )
 
 const (
@@ -29,14 +33,25 @@ func New(db *sql.DB) *Auth {
 }
 
 // CheckPassword verifies the provided password
-func (a *Auth) CheckPassword(password string) bool {
-	return password == a.password
+func (a *Auth) CheckPassword(ctx context.Context, password string) bool {
+	success := password == a.password
+	l := logger.FromContext(ctx)
+
+	if success {
+		l.Info("auth_login_success")
+	} else {
+		l.Warn("auth_login_failed", "reason", "invalid_password")
+	}
+	return success
 }
 
 // CreateSession creates a new session and returns the token
-func (a *Auth) CreateSession() (string, error) {
+func (a *Auth) CreateSession(ctx context.Context) (string, error) {
+	l := logger.FromContext(ctx)
+
 	token, err := generateToken()
 	if err != nil {
+		l.Error("auth_session_create_error", "error", err.Error())
 		return "", err
 	}
 
@@ -45,28 +60,45 @@ func (a *Auth) CreateSession() (string, error) {
 		INSERT INTO sessions (token, expires_at) VALUES (?, ?)
 	`, token, expiresAt)
 	if err != nil {
+		l.Error("auth_session_create_error", "error", err.Error())
 		return "", fmt.Errorf("create session: %w", err)
 	}
 
+	l.Info("auth_session_created", "expires_at", expiresAt.Format(time.RFC3339))
 	return token, nil
 }
 
 // ValidateSession checks if the token is valid and not expired
-func (a *Auth) ValidateSession(token string) bool {
+func (a *Auth) ValidateSession(ctx context.Context, token string) bool {
+	l := logger.FromContext(ctx)
+
 	var expiresAt time.Time
 	err := a.db.QueryRow(`
 		SELECT expires_at FROM sessions WHERE token = ?
 	`, token).Scan(&expiresAt)
 	if err != nil {
+		l.Debug("auth_session_invalid", "reason", "not_found")
 		return false
 	}
-	return time.Now().Before(expiresAt)
+
+	if time.Now().After(expiresAt) {
+		l.Debug("auth_session_invalid", "reason", "expired")
+		return false
+	}
+	return true
 }
 
 // DeleteSession removes a session
-func (a *Auth) DeleteSession(token string) error {
+func (a *Auth) DeleteSession(ctx context.Context, token string) error {
+	l := logger.FromContext(ctx)
+
 	_, err := a.db.Exec(`DELETE FROM sessions WHERE token = ?`, token)
-	return err
+	if err != nil {
+		l.Error("auth_session_delete_error", "error", err.Error())
+		return err
+	}
+	l.Info("auth_logout")
+	return nil
 }
 
 // CleanExpiredSessions removes expired sessions
@@ -110,14 +142,24 @@ func (a *Auth) GetSessionFromRequest(r *http.Request) string {
 // Middleware checks for valid session, redirects to login if not authenticated
 func (a *Auth) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		l := logger.FromContext(ctx)
+
 		// Allow access to login page and static files
-		if r.URL.Path == "/login" || r.URL.Path == "/static/style.css" {
+		if r.URL.Path == "/login" || strings.HasPrefix(r.URL.Path, "/static") {
 			next.ServeHTTP(w, r)
 			return
 		}
 
 		token := a.GetSessionFromRequest(r)
-		if token == "" || !a.ValidateSession(token) {
+		if token == "" {
+			l.Debug("auth_no_session", "path", r.URL.Path)
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+
+		if !a.ValidateSession(ctx, token) {
+			l.Debug("auth_redirect_to_login", "path", r.URL.Path)
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}

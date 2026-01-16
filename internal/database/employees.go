@@ -9,7 +9,7 @@ import (
 
 func (db *DB) ListEmployees(activeOnly bool) ([]models.Employee, error) {
 	query := `
-		SELECT id, name, hourly_rate, payment_method, active, created_at
+		SELECT id, name, hourly_rate, payment_method, active
 		FROM employees
 	`
 	if activeOnly {
@@ -27,7 +27,7 @@ func (db *DB) ListEmployees(activeOnly bool) ([]models.Employee, error) {
 	for rows.Next() {
 		var e models.Employee
 		var active int
-		if err := rows.Scan(&e.ID, &e.Name, &e.HourlyRate, &e.PaymentMethod, &active, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.Name, &e.HourlyRate, &e.PaymentMethod, &active); err != nil {
 			return nil, fmt.Errorf("scan employee: %w", err)
 		}
 		e.Active = active == 1
@@ -40,10 +40,10 @@ func (db *DB) GetEmployee(id int64) (models.Employee, error) {
 	var e models.Employee
 	var active int
 	err := db.QueryRow(`
-		SELECT id, name, hourly_rate, payment_method, active, created_at
+		SELECT id, name, hourly_rate, payment_method, active
 		FROM employees
 		WHERE id = ?
-	`, id).Scan(&e.ID, &e.Name, &e.HourlyRate, &e.PaymentMethod, &active, &e.CreatedAt)
+	`, id).Scan(&e.ID, &e.Name, &e.HourlyRate, &e.PaymentMethod, &active)
 	if err == sql.ErrNoRows {
 		return e, fmt.Errorf("employee not found")
 	}

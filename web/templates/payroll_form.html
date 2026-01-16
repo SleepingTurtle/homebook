@@ -7,7 +7,7 @@
 <div class="error">{{.Error}}</div>
 {{end}}
 
-<form action="{{if .Payroll.ID}}/payroll/{{.Payroll.ID}}{{else}}/payroll{{end}}" method="POST">
+<form action="{{if .Payroll.ID}}/payroll/entry/{{.Payroll.ID}}{{else}}/payroll{{end}}" method="POST">
 	<div class="form-group">
 		<label for="employee_id">Employee</label>
 		<select id="employee_id" name="employee_id" required onchange="updateDefaults(this)">
@@ -81,7 +81,7 @@
 </form>
 
 {{if .Payroll.ID}}
-<form action="/payroll/{{.Payroll.ID}}/delete" method="POST" style="margin-top: 2rem;" onsubmit="return confirm('Delete this payroll record?')">
+<form action="/payroll/entry/{{.Payroll.ID}}/delete" method="POST" style="margin-top: 2rem;" onsubmit="return confirm('Delete this payroll record?')">
 	<button type="submit" class="btn btn-danger">Delete This Record</button>
 </form>
 {{end}}

@@ -56,17 +56,25 @@ CREATE TABLE IF NOT EXISTS expenses (
     payment_type TEXT CHECK(payment_type IN ('cash', 'check', 'debit', 'credit', '')) DEFAULT '',
     check_number TEXT DEFAULT '',
     date_opened DATE,
+    due_date DATE,
     date_paid DATE,
     notes TEXT DEFAULT '',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS payroll (
+CREATE TABLE IF NOT EXISTS payroll_weeks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    employee_id INTEGER NOT NULL REFERENCES employees(id),
     period_start DATE NOT NULL,
     period_end DATE NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(period_start, period_end)
+);
+
+CREATE TABLE IF NOT EXISTS payroll (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    week_id INTEGER NOT NULL REFERENCES payroll_weeks(id),
+    employee_id INTEGER NOT NULL REFERENCES employees(id),
     total_hours REAL NOT NULL,
     hourly_rate REAL NOT NULL,
     payment_method TEXT CHECK(payment_method IN ('cash', 'check')) NOT NULL,
@@ -75,7 +83,8 @@ CREATE TABLE IF NOT EXISTS payroll (
     date_paid DATE,
     notes TEXT DEFAULT '',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(week_id, employee_id)
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -90,7 +99,8 @@ CREATE INDEX IF NOT EXISTS idx_delivery_sales_date ON delivery_sales(date);
 CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
 CREATE INDEX IF NOT EXISTS idx_expenses_status ON expenses(status);
 CREATE INDEX IF NOT EXISTS idx_expenses_vendor_id ON expenses(vendor_id);
-CREATE INDEX IF NOT EXISTS idx_payroll_period ON payroll(period_start, period_end);
+CREATE INDEX IF NOT EXISTS idx_payroll_weeks_period ON payroll_weeks(period_start, period_end);
+CREATE INDEX IF NOT EXISTS idx_payroll_week_id ON payroll(week_id);
 CREATE INDEX IF NOT EXISTS idx_payroll_status ON payroll(status);
 CREATE INDEX IF NOT EXISTS idx_payroll_employee_id ON payroll(employee_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);

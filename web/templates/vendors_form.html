@@ -14,13 +14,13 @@
 	</div>
 
 	<div class="form-group">
-		<label for="category">Category</label>
-		<select id="category" name="category">
-			<option value="">Select Category</option>
+		<label>Categories</label>
+		<div class="category-toggles">
 			{{range .Categories}}
-			<option value="{{.}}" {{if eq . $.Vendor.Category}}selected{{end}}>{{.}}</option>
+			<input type="checkbox" id="cat-{{.}}" name="category" value="{{.}}" {{if $.Vendor.HasCategory .}}checked{{end}}>
+			<label for="cat-{{.}}">{{.}}</label>
 			{{end}}
-		</select>
+		</div>
 	</div>
 
 	<div class="form-group">
