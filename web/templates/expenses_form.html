@@ -1,0 +1,86 @@
+{{template "header" .}}
+<div class="page-header">
+	<h1>{{if .Expense.ID}}Edit Expense{{else}}New Expense{{end}}</h1>
+</div>
+
+{{if .Error}}
+<div class="error">{{.Error}}</div>
+{{end}}
+
+<form action="{{if .Expense.ID}}/expenses/{{.Expense.ID}}{{else}}/expenses{{end}}" method="POST">
+	<div class="form-group">
+		<label for="date">Date</label>
+		<input type="date" id="date" name="date" value="{{.Expense.Date}}" required>
+	</div>
+
+	<div class="form-group">
+		<label for="vendor_id">Vendor</label>
+		<select id="vendor_id" name="vendor_id" required>
+			<option value="">Select Vendor</option>
+			{{range .Vendors}}
+			<option value="{{.ID}}" {{if eq $.Expense.VendorID .ID}}selected{{end}}>{{.Name}}</option>
+			{{end}}
+		</select>
+	</div>
+
+	<div class="form-group">
+		<label for="amount">Amount</label>
+		<input type="number" id="amount" name="amount" step="0.01" min="0" value="{{if .Expense.ID}}{{printf "%.2f" .Expense.Amount}}{{end}}" required>
+	</div>
+
+	<div class="form-group">
+		<label for="invoice_number">Invoice Number (optional)</label>
+		<input type="text" id="invoice_number" name="invoice_number" value="{{.Expense.InvoiceNumber}}">
+	</div>
+
+	<div class="form-group">
+		<label for="status">Status</label>
+		<select id="status" name="status" required>
+			<option value="not_paid" {{if or (not .Expense.ID) (eq .Expense.Status "not_paid")}}selected{{end}}>Unpaid</option>
+			<option value="paid" {{if eq .Expense.Status "paid"}}selected{{end}}>Paid</option>
+		</select>
+	</div>
+
+	<div class="form-group">
+		<label for="payment_type">Payment Type</label>
+		<select id="payment_type" name="payment_type">
+			<option value="">Select</option>
+			<option value="cash" {{if eq .Expense.PaymentType "cash"}}selected{{end}}>Cash</option>
+			<option value="check" {{if eq .Expense.PaymentType "check"}}selected{{end}}>Check</option>
+			<option value="debit" {{if eq .Expense.PaymentType "debit"}}selected{{end}}>Debit</option>
+			<option value="credit" {{if eq .Expense.PaymentType "credit"}}selected{{end}}>Credit</option>
+		</select>
+	</div>
+
+	<div class="form-group">
+		<label for="check_number">Check Number (optional){{if .LastCheckNumber}} - Last: {{.LastCheckNumber}}{{end}}</label>
+		<input type="text" id="check_number" name="check_number" value="{{.Expense.CheckNumber}}">
+	</div>
+
+	<div class="form-group">
+		<label for="date_opened">Date Opened (optional)</label>
+		<input type="date" id="date_opened" name="date_opened" value="{{.Expense.DateOpened}}">
+	</div>
+
+	<div class="form-group">
+		<label for="date_paid">Date Paid (optional)</label>
+		<input type="date" id="date_paid" name="date_paid" value="{{.Expense.DatePaid}}">
+	</div>
+
+	<div class="form-group">
+		<label for="notes">Notes (optional)</label>
+		<textarea id="notes" name="notes">{{.Expense.Notes}}</textarea>
+	</div>
+
+	<div style="display: flex; gap: 0.5rem;">
+		<button type="submit" class="btn btn-primary">{{if .Expense.ID}}Update{{else}}Save{{end}}</button>
+		<a href="/expenses" class="btn btn-secondary">Cancel</a>
+	</div>
+</form>
+
+{{if .Expense.ID}}
+<form action="/expenses/{{.Expense.ID}}/delete" method="POST" style="margin-top: 2rem;" onsubmit="return confirm('Delete this expense?')">
+	<button type="submit" class="btn btn-danger">Delete This Expense</button>
+</form>
+{{end}}
+{{template "footer" .}}

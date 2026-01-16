@@ -1,0 +1,114 @@
+{{template "header" .}}
+<div class="page-header">
+	<h1>{{if .Payroll.ID}}Edit Payroll{{else}}New Payroll{{end}}</h1>
+</div>
+
+{{if .Error}}
+<div class="error">{{.Error}}</div>
+{{end}}
+
+<form action="{{if .Payroll.ID}}/payroll/{{.Payroll.ID}}{{else}}/payroll{{end}}" method="POST">
+	<div class="form-group">
+		<label for="employee_id">Employee</label>
+		<select id="employee_id" name="employee_id" required onchange="updateDefaults(this)">
+			<option value="">Select Employee</option>
+			{{range .Employees}}
+			<option value="{{.ID}}" data-rate="{{.HourlyRate}}" data-method="{{.PaymentMethod}}" {{if eq $.Payroll.EmployeeID .ID}}selected{{end}}>{{.Name}}</option>
+			{{end}}
+		</select>
+	</div>
+
+	<div class="form-group">
+		<label for="period_start">Period Start</label>
+		<input type="date" id="period_start" name="period_start" value="{{.Payroll.PeriodStart}}" required>
+	</div>
+
+	<div class="form-group">
+		<label for="period_end">Period End</label>
+		<input type="date" id="period_end" name="period_end" value="{{.Payroll.PeriodEnd}}" required>
+	</div>
+
+	<div class="form-group">
+		<label for="total_hours">Total Hours</label>
+		<input type="number" id="total_hours" name="total_hours" step="0.25" min="0" value="{{if .Payroll.ID}}{{printf "%.2f" .Payroll.TotalHours}}{{end}}" required oninput="calculatePay()">
+	</div>
+
+	<div class="form-group">
+		<label for="hourly_rate">Hourly Rate</label>
+		<input type="number" id="hourly_rate" name="hourly_rate" step="0.01" min="0" value="{{if .Payroll.ID}}{{printf "%.2f" .Payroll.HourlyRate}}{{end}}" required oninput="calculatePay()">
+	</div>
+
+	<div class="form-group">
+		<label>Total Pay (calculated)</label>
+		<div id="total_pay_display" style="font-size: 1.2rem; font-weight: 600; padding: 0.5rem 0;">$0.00</div>
+	</div>
+
+	<div class="form-group">
+		<label for="payment_method">Payment Method</label>
+		<select id="payment_method" name="payment_method" required>
+			<option value="cash" {{if eq .Payroll.PaymentMethod "cash"}}selected{{end}}>Cash</option>
+			<option value="check" {{if eq .Payroll.PaymentMethod "check"}}selected{{end}}>Check</option>
+		</select>
+	</div>
+
+	<div class="form-group">
+		<label for="check_number">Check Number (optional){{if .LastCheckNumber}} - Last: {{.LastCheckNumber}}{{end}}</label>
+		<input type="text" id="check_number" name="check_number" value="{{.Payroll.CheckNumber}}">
+	</div>
+
+	<div class="form-group">
+		<label for="status">Status</label>
+		<select id="status" name="status" required>
+			<option value="not_paid" {{if or (not .Payroll.ID) (eq .Payroll.Status "not_paid")}}selected{{end}}>Unpaid</option>
+			<option value="paid" {{if eq .Payroll.Status "paid"}}selected{{end}}>Paid</option>
+		</select>
+	</div>
+
+	<div class="form-group">
+		<label for="date_paid">Date Paid (optional)</label>
+		<input type="date" id="date_paid" name="date_paid" value="{{.Payroll.DatePaid}}">
+	</div>
+
+	<div class="form-group">
+		<label for="notes">Notes (optional)</label>
+		<textarea id="notes" name="notes">{{.Payroll.Notes}}</textarea>
+	</div>
+
+	<div style="display: flex; gap: 0.5rem;">
+		<button type="submit" class="btn btn-primary">{{if .Payroll.ID}}Update{{else}}Save{{end}}</button>
+		<a href="/payroll" class="btn btn-secondary">Cancel</a>
+	</div>
+</form>
+
+{{if .Payroll.ID}}
+<form action="/payroll/{{.Payroll.ID}}/delete" method="POST" style="margin-top: 2rem;" onsubmit="return confirm('Delete this payroll record?')">
+	<button type="submit" class="btn btn-danger">Delete This Record</button>
+</form>
+{{end}}
+
+<script>
+function updateDefaults(select) {
+	var option = select.options[select.selectedIndex];
+	if (option.value) {
+		var rate = option.getAttribute('data-rate');
+		var method = option.getAttribute('data-method');
+		if (!document.getElementById('hourly_rate').value) {
+			document.getElementById('hourly_rate').value = parseFloat(rate).toFixed(2);
+		}
+		document.getElementById('payment_method').value = method;
+		calculatePay();
+	}
+}
+
+function calculatePay() {
+	var hours = parseFloat(document.getElementById('total_hours').value) || 0;
+	var rate = parseFloat(document.getElementById('hourly_rate').value) || 0;
+	var total = hours * rate;
+	document.getElementById('total_pay_display').textContent = '$' + total.toFixed(2);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+	calculatePay();
+});
+</script>
+{{template "footer" .}}

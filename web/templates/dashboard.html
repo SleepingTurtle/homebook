@@ -1,0 +1,152 @@
+{{template "header" .}}
+<h1>Dashboard</h1>
+
+<div class="summary-cards">
+	<div class="summary-card {{if gt .Data.UnpaidExpensesCount 0}}warning{{end}}">
+		<div class="label">Unpaid Expenses</div>
+		<div class="value">${{printf "%.2f" .Data.UnpaidExpensesTotal}}</div>
+		<div class="label">{{.Data.UnpaidExpensesCount}} item(s)</div>
+	</div>
+	<div class="summary-card {{if gt .Data.UnpaidPayrollCount 0}}warning{{end}}">
+		<div class="label">Unpaid Payroll</div>
+		<div class="value">${{printf "%.2f" .Data.UnpaidPayrollTotal}}</div>
+		<div class="label">{{.Data.UnpaidPayrollCount}} item(s)</div>
+	</div>
+</div>
+
+{{if .Data.UnpaidExpenses}}
+<div class="card">
+	<h2 class="card-title">Unpaid Expenses</h2>
+	<table>
+		<thead>
+			<tr>
+				<th>Date</th>
+				<th>Vendor</th>
+				<th class="money">Amount</th>
+				<th class="actions"></th>
+			</tr>
+		</thead>
+		<tbody>
+			{{range .Data.UnpaidExpenses}}
+			<tr>
+				<td>{{.Date}}</td>
+				<td>{{.VendorName}}</td>
+				<td class="money">${{printf "%.2f" .Amount}}</td>
+				<td class="actions">
+					<form action="/expenses/{{.ID}}/pay" method="POST" style="display:inline">
+						<button type="submit" class="btn btn-success btn-small">Mark Paid</button>
+					</form>
+					<a href="/expenses/{{.ID}}/edit" class="btn btn-secondary btn-small">Edit</a>
+				</td>
+			</tr>
+			{{end}}
+		</tbody>
+	</table>
+</div>
+{{end}}
+
+{{if .Data.UnpaidPayroll}}
+<div class="card">
+	<h2 class="card-title">Unpaid Payroll</h2>
+	<table>
+		<thead>
+			<tr>
+				<th>Employee</th>
+				<th>Period</th>
+				<th class="money">Total Pay</th>
+				<th class="actions"></th>
+			</tr>
+		</thead>
+		<tbody>
+			{{range .Data.UnpaidPayroll}}
+			<tr>
+				<td>{{.EmployeeName}}</td>
+				<td>{{.PeriodStart}} - {{.PeriodEnd}}</td>
+				<td class="money">${{printf "%.2f" .TotalPay}}</td>
+				<td class="actions">
+					<form action="/payroll/{{.ID}}/pay" method="POST" style="display:inline">
+						<button type="submit" class="btn btn-success btn-small">Mark Paid</button>
+					</form>
+					<a href="/payroll/{{.ID}}/edit" class="btn btn-secondary btn-small">Edit</a>
+				</td>
+			</tr>
+			{{end}}
+		</tbody>
+	</table>
+</div>
+{{end}}
+
+<div class="card">
+	<div class="card-header-row">
+		<h2 class="card-title">Recent Sales (Last 7 Days)</h2>
+		{{if .Data.RecentSalesGrouped}}<span class="card-total">${{printf "%.2f" .Data.RecentSalesTotal}}</span>{{end}}
+	</div>
+	{{if .Data.RecentSalesGrouped}}
+	<div class="date-groups">
+		{{range .Data.RecentSalesGrouped}}
+		<div class="date-row" data-collapsed="{{.Collapsed}}">
+			<div class="date-row-header" onclick="toggleDateRow(this)">
+				<span class="collapse-icon">{{if .Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
+				<span class="date-label">{{.Date}}</span>
+				<span class="date-total">${{printf "%.2f" .Total}}</span>
+			</div>
+			<div class="date-row-content" {{if .Collapsed}}style="display:none"{{end}}>
+				<table>
+					<thead>
+						<tr>
+							<th>Shift</th>
+							<th class="money">Net Sales</th>
+							<th class="money">Taxes</th>
+							<th class="money hide-mobile">Credit Card</th>
+							<th class="money hide-mobile">Cash Receipt</th>
+							<th class="money">Cash On Hand</th>
+							<th class="money">Variance</th>
+						</tr>
+					</thead>
+					<tbody>
+						{{range .Sales}}
+						<tr>
+							<td>{{.Shift}}</td>
+							<td class="money">${{printf "%.2f" .NetSales}}</td>
+							<td class="money">${{printf "%.2f" .Taxes}}</td>
+							<td class="money hide-mobile">${{printf "%.2f" .CreditCard}}</td>
+							<td class="money hide-mobile">${{printf "%.2f" .CashReceipt}}</td>
+							<td class="money">${{printf "%.2f" .CashOnHand}}</td>
+							<td class="money {{if lt .Variance 0.0}}variance-negative{{else if gt .Variance 0.0}}variance-positive{{end}}">
+								${{printf "%.2f" .Variance}}
+							</td>
+						</tr>
+						{{end}}
+					</tbody>
+				</table>
+				{{if .Delivery}}
+				<div class="delivery-row">
+					<span class="delivery-label">Delivery</span>
+					<span class="delivery-amounts">
+						<span class="gross">${{printf "%.2f" .Delivery.TotalSubtotal}} gross</span> /
+						<span class="net">${{printf "%.2f" .Delivery.TotalNet}} net</span>
+					</span>
+				</div>
+				{{end}}
+			</div>
+		</div>
+		{{end}}
+	</div>
+	{{else}}
+	<p class="empty-state">No sales recorded in the last 7 days.</p>
+	{{end}}
+</div>
+
+<script>
+function toggleDateRow(header) {
+	const row = header.parentElement;
+	const content = row.querySelector('.date-row-content');
+	const icon = header.querySelector('.collapse-icon');
+	const isCollapsed = row.dataset.collapsed === 'true';
+
+	row.dataset.collapsed = !isCollapsed;
+	content.style.display = isCollapsed ? 'block' : 'none';
+	icon.innerHTML = isCollapsed ? '&#9660;' : '&#9654;';
+}
+</script>
+{{template "footer" .}}

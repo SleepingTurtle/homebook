@@ -1,0 +1,42 @@
+{{template "header" .}}
+<div class="page-header">
+	<h1>{{if .Vendor.ID}}Edit Vendor{{else}}New Vendor{{end}}</h1>
+</div>
+
+{{if .Error}}
+<div class="error">{{.Error}}</div>
+{{end}}
+
+<form action="{{if .Vendor.ID}}/vendors/{{.Vendor.ID}}{{else}}/vendors{{end}}" method="POST">
+	<div class="form-group">
+		<label for="name">Vendor Name</label>
+		<input type="text" id="name" name="name" value="{{.Vendor.Name}}" required>
+	</div>
+
+	<div class="form-group">
+		<label for="category">Category</label>
+		<select id="category" name="category">
+			<option value="">Select Category</option>
+			{{range .Categories}}
+			<option value="{{.}}" {{if eq . $.Vendor.Category}}selected{{end}}>{{.}}</option>
+			{{end}}
+		</select>
+	</div>
+
+	<div class="form-group">
+		<label for="description">Description (optional)</label>
+		<textarea id="description" name="description">{{.Vendor.Description}}</textarea>
+	</div>
+
+	<div style="display: flex; gap: 0.5rem;">
+		<button type="submit" class="btn btn-primary">{{if .Vendor.ID}}Update{{else}}Save{{end}}</button>
+		<a href="/vendors" class="btn btn-secondary">Cancel</a>
+	</div>
+</form>
+
+{{if .Vendor.ID}}
+<form action="/vendors/{{.Vendor.ID}}/delete" method="POST" style="margin-top: 2rem;" onsubmit="return confirm('Delete this vendor? This will fail if there are expenses linked to it.')">
+	<button type="submit" class="btn btn-danger">Delete This Vendor</button>
+</form>
+{{end}}
+{{template "footer" .}}

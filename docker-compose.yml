@@ -1,0 +1,15 @@
+services:
+  homebooks:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - homebooks-data:/data
+    environment:
+      - HOMEBOOKS_PASSWORD=${HOMEBOOKS_PASSWORD:-changeme}
+      - HOMEBOOKS_DB_PATH=/data/homebooks.db
+      - PORT=8080
+    restart: unless-stopped
+
+volumes:
+  homebooks-data:

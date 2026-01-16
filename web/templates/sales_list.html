@@ -1,0 +1,228 @@
+{{template "header" .}}
+<div class="page-header">
+	<h1>Daily Sales</h1>
+	<div style="display: flex; gap: 0.5rem;">
+		<a href="/sales/new" class="btn btn-primary">Add Sale</a>
+		<a href="/sales/delivery/new" class="btn btn-secondary">Add Delivery</a>
+	</div>
+</div>
+
+{{define "sales-table"}}
+{{if .}}
+<table>
+	<thead>
+		<tr>
+			<th>Date</th>
+			<th>Shift</th>
+			<th class="money">Net Sales</th>
+			<th class="money">Taxes</th>
+			<th class="money hide-mobile">Credit Card</th>
+			<th class="money hide-mobile">Cash Receipt</th>
+			<th class="money">Cash On Hand</th>
+			<th class="money hide-mobile">Expected</th>
+			<th class="money">Variance</th>
+			<th class="actions"></th>
+		</tr>
+	</thead>
+	<tbody>
+		{{range .}}
+		<tr>
+			<td>{{.Date}}</td>
+			<td>{{.Shift}}</td>
+			<td class="money">${{printf "%.2f" .NetSales}}</td>
+			<td class="money">${{printf "%.2f" .Taxes}}</td>
+			<td class="money hide-mobile">${{printf "%.2f" .CreditCard}}</td>
+			<td class="money hide-mobile">${{printf "%.2f" .CashReceipt}}</td>
+			<td class="money">${{printf "%.2f" .CashOnHand}}</td>
+			<td class="money hide-mobile">${{printf "%.2f" .ExpectedCash}}</td>
+			<td class="money {{if lt .Variance 0.0}}variance-negative{{else if gt .Variance 0.0}}variance-positive{{end}}">
+				${{printf "%.2f" .Variance}}
+			</td>
+			<td class="actions">
+				<a href="/sales/{{.ID}}/edit" class="btn btn-secondary btn-small">Edit</a>
+			</td>
+		</tr>
+		{{end}}
+	</tbody>
+</table>
+{{else}}
+<p class="empty-state-inline">No entries</p>
+{{end}}
+{{end}}
+
+{{define "date-grouped-table"}}
+{{if .}}
+<div class="date-groups">
+	{{range .}}
+	<div class="date-row" data-collapsed="{{.Collapsed}}">
+		<div class="date-row-header" onclick="toggleDateRow(this)">
+			<span class="collapse-icon">{{if .Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
+			<span class="date-label">{{.Date}}</span>
+			<span class="date-total">${{printf "%.2f" .Total}}</span>
+		</div>
+		<div class="date-row-content" {{if .Collapsed}}style="display:none"{{end}}>
+			<table>
+				<thead>
+					<tr>
+						<th>Shift</th>
+						<th class="money">Net Sales</th>
+						<th class="money">Taxes</th>
+						<th class="money hide-mobile">Credit Card</th>
+						<th class="money hide-mobile">Cash Receipt</th>
+						<th class="money">Cash On Hand</th>
+						<th class="money hide-mobile">Expected</th>
+						<th class="money">Variance</th>
+						<th class="actions"></th>
+					</tr>
+				</thead>
+				<tbody>
+					{{range .Sales}}
+					<tr>
+						<td>{{.Shift}}</td>
+						<td class="money">${{printf "%.2f" .NetSales}}</td>
+						<td class="money">${{printf "%.2f" .Taxes}}</td>
+						<td class="money hide-mobile">${{printf "%.2f" .CreditCard}}</td>
+						<td class="money hide-mobile">${{printf "%.2f" .CashReceipt}}</td>
+						<td class="money">${{printf "%.2f" .CashOnHand}}</td>
+						<td class="money hide-mobile">${{printf "%.2f" .ExpectedCash}}</td>
+						<td class="money {{if lt .Variance 0.0}}variance-negative{{else if gt .Variance 0.0}}variance-positive{{end}}">
+							${{printf "%.2f" .Variance}}
+						</td>
+						<td class="actions">
+							<a href="/sales/{{.ID}}/edit" class="btn btn-secondary btn-small">Edit</a>
+						</td>
+					</tr>
+					{{end}}
+				</tbody>
+			</table>
+			{{if .Delivery}}
+			<div class="delivery-row">
+				<span class="delivery-label">Delivery</span>
+				<span class="delivery-amounts">
+					<span class="gross">${{printf "%.2f" .Delivery.TotalSubtotal}} gross</span> /
+					<span class="net">${{printf "%.2f" .Delivery.TotalNet}} net</span>
+				</span>
+				<a href="/sales/delivery/{{.RawDate}}/edit" class="btn btn-secondary btn-small">Edit</a>
+			</div>
+			{{else}}
+			<div class="delivery-row">
+				<span class="delivery-label">Delivery</span>
+				<span class="delivery-amounts">
+					<span class="gross">No delivery data</span>
+				</span>
+				<a href="/sales/delivery/new?date={{.RawDate}}" class="btn btn-secondary btn-small">Add</a>
+			</div>
+			{{end}}
+		</div>
+	</div>
+	{{end}}
+</div>
+{{else}}
+<p class="empty-state-inline">No entries</p>
+{{end}}
+{{end}}
+
+{{if .Grouped}}
+<!-- Today -->
+{{if .Grouped.Today}}
+<div class="sales-group" data-collapsed="{{.Grouped.Today.Collapsed}}">
+	<div class="sales-group-header" onclick="toggleGroup(this)">
+		<span class="collapse-icon">{{if .Grouped.Today.Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
+		<span class="group-label">{{.Grouped.Today.Label}}</span>
+		<span class="group-total">${{printf "%.2f" .Grouped.Today.Total}}</span>
+	</div>
+	<div class="sales-group-content" {{if .Grouped.Today.Collapsed}}style="display:none"{{end}}>
+		{{template "sales-table" .Grouped.Today.Sales}}
+		{{if .Grouped.Today.Delivery}}
+		<div class="delivery-row">
+			<span class="delivery-label">Delivery</span>
+			<span class="delivery-amounts">
+				<span class="gross">${{printf "%.2f" .Grouped.Today.Delivery.TotalSubtotal}} gross</span> /
+				<span class="net">${{printf "%.2f" .Grouped.Today.Delivery.TotalNet}} net</span>
+			</span>
+			<a href="/sales/delivery/{{.TodayDate}}/edit" class="btn btn-secondary btn-small">Edit</a>
+		</div>
+		{{else}}
+		<div class="delivery-row">
+			<span class="delivery-label">Delivery</span>
+			<span class="delivery-amounts">
+				<span class="gross">No delivery data</span>
+			</span>
+			<a href="/sales/delivery/new" class="btn btn-secondary btn-small">Add</a>
+		</div>
+		{{end}}
+	</div>
+</div>
+{{end}}
+
+<!-- This Month -->
+{{if .Grouped.ThisMonth}}
+<div class="sales-group" data-collapsed="{{.Grouped.ThisMonth.Collapsed}}">
+	<div class="sales-group-header" onclick="toggleGroup(this)">
+		<span class="collapse-icon">{{if .Grouped.ThisMonth.Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
+		<span class="group-label">{{.Grouped.ThisMonth.Label}}</span>
+		<span class="group-total">${{printf "%.2f" .Grouped.ThisMonth.Total}}</span>
+	</div>
+	<div class="sales-group-content" {{if .Grouped.ThisMonth.Collapsed}}style="display:none"{{end}}>
+		{{template "date-grouped-table" .Grouped.ThisMonth.DateGroups}}
+	</div>
+</div>
+{{end}}
+
+<!-- Previous Months (current year) -->
+{{range .Grouped.PrevMonths}}
+<div class="sales-group" data-collapsed="{{.Collapsed}}">
+	<div class="sales-group-header" onclick="toggleGroup(this)">
+		<span class="collapse-icon">{{if .Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
+		<span class="group-label">{{.Label}}</span>
+		<span class="group-total">${{printf "%.2f" .Total}}</span>
+	</div>
+	<div class="sales-group-content" {{if .Collapsed}}style="display:none"{{end}}>
+		{{template "date-grouped-table" .DateGroups}}
+	</div>
+</div>
+{{end}}
+
+<!-- Previous Years -->
+{{range .Grouped.PrevYears}}
+<div class="sales-group" data-collapsed="{{.Collapsed}}">
+	<div class="sales-group-header" onclick="toggleGroup(this)">
+		<span class="collapse-icon">{{if .Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
+		<span class="group-label">{{.Label}}</span>
+		<span class="group-total">${{printf "%.2f" .Total}}</span>
+	</div>
+	<div class="sales-group-content" {{if .Collapsed}}style="display:none"{{end}}>
+		{{template "date-grouped-table" .DateGroups}}
+	</div>
+</div>
+{{end}}
+
+{{else}}
+<p class="empty-state">No sales found. Add one using the button above.</p>
+{{end}}
+
+<script>
+function toggleGroup(header) {
+	const group = header.parentElement;
+	const content = group.querySelector('.sales-group-content');
+	const icon = header.querySelector('.collapse-icon');
+	const isCollapsed = group.dataset.collapsed === 'true';
+
+	group.dataset.collapsed = !isCollapsed;
+	content.style.display = isCollapsed ? 'block' : 'none';
+	icon.innerHTML = isCollapsed ? '&#9660;' : '&#9654;';
+}
+
+function toggleDateRow(header) {
+	const row = header.parentElement;
+	const content = row.querySelector('.date-row-content');
+	const icon = header.querySelector('.collapse-icon');
+	const isCollapsed = row.dataset.collapsed === 'true';
+
+	row.dataset.collapsed = !isCollapsed;
+	content.style.display = isCollapsed ? 'block' : 'none';
+	icon.innerHTML = isCollapsed ? '&#9660;' : '&#9654;';
+}
+</script>
+
+{{template "footer" .}}
