@@ -1,6 +1,6 @@
 {{template "header" .}}
 <div class="page-header">
-	<h1>Bank Reconciliations</h1>
+	<h1>Bank Statements</h1>
 	<a href="/expenses" class="btn btn-secondary">Back to Expenses</a>
 </div>
 
@@ -36,9 +36,9 @@
 			</td>
 			<td class="actions">
 				{{if eq .Status "completed"}}
-					<a href="/reconciliations/{{.ID}}" class="btn btn-secondary btn-small">View</a>
+					<a href="/bank-statements/{{.ID}}" class="btn btn-secondary btn-small">View</a>
 				{{else if eq .Status "parsed"}}
-					<a href="/reconciliations/{{.ID}}/edit" class="btn btn-secondary btn-small">Review</a>
+					<a href="/bank-statements/{{.ID}}/review" class="btn btn-secondary btn-small">Review</a>
 				{{else if eq .Status "parsing"}}
 					<span class="btn btn-secondary btn-small" style="opacity: 0.5;">Parsing...</span>
 				{{else}}
@@ -55,7 +55,7 @@
 
 <div class="card" style="margin-top: 2rem;">
 	<h2 style="margin-top: 0;">Upload Bank Statement</h2>
-	<form id="upload-form" action="/reconciliations/upload" method="POST" enctype="multipart/form-data">
+	<form id="upload-form" action="/bank-statements/upload" method="POST" enctype="multipart/form-data">
 		<div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
 			<div class="form-group" style="margin-bottom: 0;">
 				<label for="statement_month">Statement Month</label>
@@ -137,7 +137,7 @@ document.getElementById('upload-form').addEventListener('submit', async function
 			if (status.status === 'completed') {
 				progressText.textContent = 'Done! Redirecting...';
 				progressBar.style.width = '100%';
-				window.location.href = '/reconciliations/' + reconId + '/edit';
+				window.location.href = '/bank-statements/' + reconId + '/review';
 				return;
 			} else if (status.status === 'failed') {
 				throw new Error('Parsing failed: ' + status.result);

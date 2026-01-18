@@ -1,7 +1,12 @@
 {{template "header" .}}
 <div class="page-header">
 	<h1>Review Reconciliation: {{.Reconciliation.StatementDateDisplay}}</h1>
-	<a href="/reconciliations" class="btn btn-secondary">Back to Reconciliations</a>
+	<div style="display: flex; gap: 0.5rem;">
+		<form action="/bank-statements/{{.Reconciliation.ID}}/reparse" method="POST" style="margin: 0;">
+			<button type="submit" class="btn btn-secondary" onclick="return confirm('Re-parse the statement? This will delete existing transactions and re-import them.')">Reparse Statement</button>
+		</form>
+		<a href="/bank-statements" class="btn btn-secondary">Back to Bank Statements</a>
+	</div>
 </div>
 
 <div class="card" style="margin-bottom: 1.5rem;">
@@ -76,9 +81,13 @@
 			<th class="money">Amount</th>
 			<th>Status</th>
 			<th>Match</th>
+			<th class="actions">Actions</th>
 		</tr>
 	</thead>
 	<tbody>
+		{{$reconID := .Reconciliation.ID}}
+		{{$expenses := .Expenses}}
+		{{$vendors := .Vendors}}
 		{{range .Transactions}}
 		<tr>
 			<td>{{.PostingDate}}</td>
@@ -120,10 +129,133 @@
 					<span style="color: #9ca3af;">-</span>
 				{{end}}
 			</td>
+			<td class="actions">
+				{{if eq .MatchStatus "unmatched"}}
+					<button type="button" class="btn btn-secondary btn-small" onclick="openMatchModal({{.ID}}, '{{.Description}}', {{.Amount}})">Match</button>
+					<button type="button" class="btn btn-secondary btn-small" onclick="openCreateModal({{.ID}}, '{{.Description}}', {{.Amount}}, '{{.PostingDate}}')">Create</button>
+					<form action="/bank-statements/{{$reconID}}/ignore" method="POST" style="display: inline; margin: 0;">
+						<input type="hidden" name="transaction_id" value="{{.ID}}">
+						<button type="submit" class="btn btn-secondary btn-small">Ignore</button>
+					</form>
+				{{else if or (eq .MatchStatus "matched") (eq .MatchStatus "created")}}
+					<form action="/bank-statements/{{$reconID}}/unmatch" method="POST" style="display: inline; margin: 0;">
+						<input type="hidden" name="transaction_id" value="{{.ID}}">
+						<button type="submit" class="btn btn-secondary btn-small">Unmatch</button>
+					</form>
+				{{else if eq .MatchStatus "ignored"}}
+					<form action="/bank-statements/{{$reconID}}/unmatch" method="POST" style="display: inline; margin: 0;">
+						<input type="hidden" name="transaction_id" value="{{.ID}}">
+						<button type="submit" class="btn btn-secondary btn-small">Restore</button>
+					</form>
+				{{end}}
+			</td>
 		</tr>
 		{{end}}
 	</tbody>
 </table>
+
+<!-- Match Modal -->
+<div id="match-modal" class="modal" style="display: none;">
+	<div class="modal-content">
+		<h3>Match Transaction</h3>
+		<p id="match-modal-desc"></p>
+		<form action="/bank-statements/{{.Reconciliation.ID}}/match" method="POST">
+			<input type="hidden" name="transaction_id" id="match-txn-id">
+			<div class="form-group">
+				<label for="expense_id">Select Expense to Match</label>
+				<select name="expense_id" id="expense_id" required>
+					<option value="">-- Select Expense --</option>
+					{{range .Expenses}}
+					<option value="{{.ID}}">${{printf "%.2f" .Amount}} - {{.VendorName}} ({{.Date}})</option>
+					{{end}}
+				</select>
+			</div>
+			<div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
+				<button type="button" class="btn btn-secondary" onclick="closeMatchModal()">Cancel</button>
+				<button type="submit" class="btn btn-primary">Match</button>
+			</div>
+		</form>
+	</div>
+</div>
+
+<!-- Create Expense Modal -->
+<div id="create-modal" class="modal" style="display: none;">
+	<div class="modal-content">
+		<h3>Create Expense from Transaction</h3>
+		<p id="create-modal-desc"></p>
+		<form action="/bank-statements/{{.Reconciliation.ID}}/create-expense" method="POST">
+			<input type="hidden" name="transaction_id" id="create-txn-id">
+			<div class="form-group">
+				<label for="vendor_id">Vendor</label>
+				<select name="vendor_id" id="vendor_id" required>
+					<option value="">-- Select Vendor --</option>
+					{{range .Vendors}}
+					<option value="{{.ID}}">{{.Name}}</option>
+					{{end}}
+				</select>
+			</div>
+			<div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
+				<button type="button" class="btn btn-secondary" onclick="closeCreateModal()">Cancel</button>
+				<button type="submit" class="btn btn-primary">Create Expense</button>
+			</div>
+		</form>
+	</div>
+</div>
+
+<style>
+.modal {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0,0,0,0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+}
+.modal-content {
+	background: white;
+	padding: 1.5rem;
+	border-radius: 8px;
+	min-width: 400px;
+	max-width: 90%;
+}
+.modal-content h3 {
+	margin-top: 0;
+}
+</style>
+
+<script>
+function openMatchModal(txnId, desc, amount) {
+	document.getElementById('match-txn-id').value = txnId;
+	document.getElementById('match-modal-desc').textContent = desc + ' ($' + Math.abs(amount).toFixed(2) + ')';
+	document.getElementById('match-modal').style.display = 'flex';
+}
+
+function closeMatchModal() {
+	document.getElementById('match-modal').style.display = 'none';
+}
+
+function openCreateModal(txnId, desc, amount, date) {
+	document.getElementById('create-txn-id').value = txnId;
+	document.getElementById('create-modal-desc').textContent = desc + ' ($' + Math.abs(amount).toFixed(2) + ') - ' + date;
+	document.getElementById('create-modal').style.display = 'flex';
+}
+
+function closeCreateModal() {
+	document.getElementById('create-modal').style.display = 'none';
+}
+
+// Close modal on background click
+document.getElementById('match-modal').addEventListener('click', function(e) {
+	if (e.target === this) closeMatchModal();
+});
+document.getElementById('create-modal').addEventListener('click', function(e) {
+	if (e.target === this) closeCreateModal();
+});
+</script>
 {{else}}
 <p class="empty-state">No transactions found for this reconciliation.</p>
 {{end}}

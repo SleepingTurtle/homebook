@@ -926,7 +926,7 @@ func (h *Handler) ReconciliationsList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.render(w, r, "reconciliations_list.html", map[string]any{
-		"Title":           "Bank Reconciliations",
+		"Title":           "Bank Statements",
 		"Active":          "expenses",
 		"Reconciliations": reconciliations,
 		"AvailableMonths": availableMonths,
@@ -1025,20 +1025,64 @@ func (h *Handler) ReconciliationsUpload(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// ReconciliationsEdit shows the reconciliation review/edit page
-func (h *Handler) ReconciliationsEdit(w http.ResponseWriter, r *http.Request) {
+// ReconciliationsReparse queues a new parse job for an existing reconciliation
+func (h *Handler) ReconciliationsReparse(w http.ResponseWriter, r *http.Request) {
 	l := logger.FromContext(r.Context())
 
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.Redirect(w, r, "/reconciliations", http.StatusFound)
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	recon, err := h.db.GetReconciliation(id)
+	if err != nil {
+		l.Error("reconciliation_reparse_get_error", "id", id, "error", err.Error())
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	// Reset status to pending
+	if err := h.db.UpdateReconciliationStatus(id, "pending"); err != nil {
+		l.Error("reconciliation_reparse_status_error", "id", id, "error", err.Error())
+	}
+
+	// Queue new parse job
+	jobPayload := map[string]any{
+		"reconciliation_id": id,
+		"file_path":         recon.FilePath,
+	}
+	jobID, err := h.db.CreateJob("parse_statement", jobPayload)
+	if err != nil {
+		l.Error("reconciliation_reparse_job_error", "id", id, "error", err.Error())
+		http.Error(w, "Failed to queue parse job", http.StatusInternalServerError)
+		return
+	}
+
+	// Update reconciliation with new job ID
+	if err := h.db.UpdateReconciliationParseJob(id, jobID); err != nil {
+		l.Error("reconciliation_reparse_update_error", "id", id, "error", err.Error())
+	}
+
+	l.Info("reconciliation_reparse_queued", "reconciliation_id", id, "job_id", jobID)
+
+	http.Redirect(w, r, "/bank-statements", http.StatusFound)
+}
+
+// ReconciliationsReview shows the reconciliation review page
+func (h *Handler) ReconciliationsReview(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
 		return
 	}
 
 	recon, err := h.db.GetReconciliation(id)
 	if err != nil {
 		l.Error("reconciliation_get_error", "id", id, "error", err.Error())
-		http.Redirect(w, r, "/reconciliations", http.StatusFound)
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
 		return
 	}
 
@@ -1052,13 +1096,188 @@ func (h *Handler) ReconciliationsEdit(w http.ResponseWriter, r *http.Request) {
 		l.Error("reconciliation_stats_error", "id", id, "error", err.Error())
 	}
 
+	// Get expenses for matching (paid expenses from around the statement period)
+	vendors, _ := h.db.ListVendors()
+	expenses, _, _ := h.db.ListExpenses(models.ExpenseFilter{Status: "paid"})
+
 	h.render(w, r, "reconciliation_edit.html", map[string]any{
 		"Title":          "Review Reconciliation",
 		"Active":         "expenses",
 		"Reconciliation": recon,
 		"Transactions":   transactions,
 		"Stats":          stats,
+		"Expenses":       expenses,
+		"Vendors":        vendors,
 	})
+}
+
+// ReconciliationsMatch manually matches a bank transaction to an expense
+func (h *Handler) ReconciliationsMatch(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	reconID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
+	if err != nil {
+		l.Error("match_invalid_txn_id", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		return
+	}
+
+	expenseID, err := strconv.ParseInt(r.FormValue("expense_id"), 10, 64)
+	if err != nil {
+		l.Error("match_invalid_expense_id", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		return
+	}
+
+	if err := h.db.MatchBankTransaction(txnID, expenseID, "manual"); err != nil {
+		l.Error("match_error", "txn_id", txnID, "expense_id", expenseID, "error", err.Error())
+	} else {
+		l.Info("transaction_matched", "txn_id", txnID, "expense_id", expenseID)
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+}
+
+// ReconciliationsUnmatch removes a match from a bank transaction
+func (h *Handler) ReconciliationsUnmatch(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	reconID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
+	if err != nil {
+		l.Error("unmatch_invalid_txn_id", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		return
+	}
+
+	if err := h.db.UnmatchBankTransaction(txnID); err != nil {
+		l.Error("unmatch_error", "txn_id", txnID, "error", err.Error())
+	} else {
+		l.Info("transaction_unmatched", "txn_id", txnID)
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+}
+
+// ReconciliationsIgnore marks a bank transaction as ignored
+func (h *Handler) ReconciliationsIgnore(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	reconID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
+	if err != nil {
+		l.Error("ignore_invalid_txn_id", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		return
+	}
+
+	reason := r.FormValue("reason")
+	if reason == "" {
+		reason = "Manually ignored"
+	}
+
+	if err := h.db.IgnoreBankTransaction(txnID, reason); err != nil {
+		l.Error("ignore_error", "txn_id", txnID, "error", err.Error())
+	} else {
+		l.Info("transaction_ignored", "txn_id", txnID, "reason", reason)
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+}
+
+// ReconciliationsCreateExpense creates a new expense from a bank transaction
+func (h *Handler) ReconciliationsCreateExpense(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	reconID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
+	if err != nil {
+		l.Error("create_expense_invalid_txn_id", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		return
+	}
+
+	vendorID, err := strconv.ParseInt(r.FormValue("vendor_id"), 10, 64)
+	if err != nil {
+		l.Error("create_expense_invalid_vendor_id", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		return
+	}
+
+	// Get the bank transaction
+	txn, err := h.db.GetBankTransaction(txnID)
+	if err != nil {
+		l.Error("create_expense_get_txn_error", "txn_id", txnID, "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		return
+	}
+
+	// Create the expense (amount is negative in bank txn, so we use absolute value)
+	amount := txn.Amount
+	if amount < 0 {
+		amount = -amount
+	}
+
+	// Map bank transaction type to expense payment type
+	paymentType := ""
+	switch txn.TransactionType {
+	case "check":
+		paymentType = "check"
+	case "debit", "ach", "electronic":
+		paymentType = "debit"
+	case "credit":
+		paymentType = "credit"
+	default:
+		paymentType = "debit" // default for unknown types
+	}
+
+	expense := models.Expense{
+		Date:        txn.PostingDate,
+		VendorID:    vendorID,
+		Amount:      amount,
+		Status:      "paid",
+		PaymentType: paymentType,
+		CheckNumber: txn.CheckNumber,
+		DatePaid:    txn.PostingDate,
+		Notes:       fmt.Sprintf("Created from bank statement: %s", txn.Description),
+	}
+
+	expenseID, err := h.db.CreateExpense(expense)
+	if err != nil {
+		l.Error("create_expense_error", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		return
+	}
+
+	// Mark the transaction as created and link it
+	if err := h.db.MarkBankTransactionCreated(txnID, expenseID); err != nil {
+		l.Error("mark_txn_created_error", "txn_id", txnID, "expense_id", expenseID, "error", err.Error())
+	} else {
+		l.Info("expense_created_from_txn", "txn_id", txnID, "expense_id", expenseID)
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
 }
 
 // JobStatus returns the status of a background job as JSON (for polling)
