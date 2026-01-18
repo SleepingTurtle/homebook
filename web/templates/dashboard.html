@@ -7,7 +7,7 @@
 		<div class="value">${{printf "%.2f" .Data.TodaySalesTotal}}</div>
 	</div>
 	<div class="summary-card">
-		<div class="label">Today's Expenses</div>
+		<div class="label">Today's Receipts</div>
 		<div class="value">${{printf "%.2f" .Data.TodayExpensesTotal}}</div>
 	</div>
 </div>
@@ -15,7 +15,7 @@
 {{if .Data.UnpaidExpenses}}
 <div class="card">
 	<div class="card-header-row">
-		<h2 class="card-title">Unpaid Expenses</h2>
+		<h2 class="card-title">Unpaid Receipts</h2>
 		<span class="card-total">${{printf "%.2f" .Data.UnpaidExpensesTotal}}</span>
 	</div>
 	<table>

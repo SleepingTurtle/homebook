@@ -1,6 +1,6 @@
 {{template "header" .}}
 <div class="page-header">
-	<h1>{{if .Expense.ID}}Edit Expense{{else}}New Expense{{end}}</h1>
+	<h1>{{if .Expense.ID}}Edit Receipt{{else}}New Receipt{{end}}</h1>
 </div>
 
 {{if .Error}}
@@ -8,101 +8,159 @@
 {{end}}
 
 <form action="{{if .Expense.ID}}/expenses/{{.Expense.ID}}{{else}}/expenses{{end}}" method="POST" enctype="multipart/form-data">
-	<div class="form-group">
-		<label for="date">Date</label>
-		<input type="date" id="date" name="date" value="{{.Expense.Date}}" required>
-	</div>
+	<div class="form-layout">
+		<!-- Left Column: Main Details -->
+		<div class="form-main">
+			<!-- Basic Info Section -->
+			<div class="form-section">
+				<h3 class="form-section-title">Basic Information</h3>
+				<div class="form-row">
+					<div class="form-group">
+						<label for="vendor_id">Vendor</label>
+						<select id="vendor_id" name="vendor_id" required>
+							<option value="">Select Vendor</option>
+							{{range .Vendors}}
+							<option value="{{.ID}}" {{if eq $.Expense.VendorID .ID}}selected{{end}}>{{.Name}}</option>
+							{{end}}
+						</select>
+					</div>
+					<div class="form-group">
+						<label for="amount">Amount</label>
+						<div class="input-with-prefix">
+							<span class="input-prefix">$</span>
+							<input type="number" id="amount" name="amount" step="0.01" min="0" value="{{if .Expense.ID}}{{printf "%.2f" .Expense.Amount}}{{end}}" required>
+						</div>
+					</div>
+				</div>
+				<div class="form-row">
+					<div class="form-group">
+						<label for="date">Receipt Date</label>
+						<input type="date" id="date" name="date" value="{{.Expense.Date}}" required>
+					</div>
+					<div class="form-group">
+						<label for="invoice_number">Invoice Number</label>
+						<input type="text" id="invoice_number" name="invoice_number" value="{{.Expense.InvoiceNumber}}" placeholder="Optional">
+					</div>
+				</div>
+			</div>
 
-	<div class="form-group">
-		<label for="vendor_id">Vendor</label>
-		<select id="vendor_id" name="vendor_id" required>
-			<option value="">Select Vendor</option>
-			{{range .Vendors}}
-			<option value="{{.ID}}" {{if eq $.Expense.VendorID .ID}}selected{{end}}>{{.Name}}</option>
-			{{end}}
-		</select>
-	</div>
+			<!-- Payment Section -->
+			<div class="form-section">
+				<h3 class="form-section-title">Payment Details</h3>
+				<div class="form-row">
+					<div class="form-group">
+						<label for="status">Status</label>
+						<select id="status" name="status" required>
+							<option value="not_paid" {{if or (not .Expense.ID) (eq .Expense.Status "not_paid")}}selected{{end}}>Unpaid</option>
+							<option value="paid" {{if eq .Expense.Status "paid"}}selected{{end}}>Paid</option>
+						</select>
+					</div>
+					<div class="form-group">
+						<label for="payment_type">Payment Method</label>
+						<select id="payment_type" name="payment_type">
+							<option value="">Not specified</option>
+							<option value="cash" {{if eq .Expense.PaymentType "cash"}}selected{{end}}>Cash</option>
+							<option value="check" {{if eq .Expense.PaymentType "check"}}selected{{end}}>Check</option>
+							<option value="debit" {{if eq .Expense.PaymentType "debit"}}selected{{end}}>Debit Card</option>
+							<option value="credit" {{if eq .Expense.PaymentType "credit"}}selected{{end}}>Credit Card</option>
+						</select>
+					</div>
+				</div>
+				<div class="form-group" id="check-number-group" style="{{if ne .Expense.PaymentType "check"}}display: none;{{end}}">
+					<label for="check_number">Check Number{{if .LastCheckNumber}} <span class="label-hint">(Last used: {{.LastCheckNumber}})</span>{{end}}</label>
+					<input type="text" id="check_number" name="check_number" value="{{.Expense.CheckNumber}}" placeholder="Enter check number">
+				</div>
+			</div>
 
-	<div class="form-group">
-		<label for="amount">Amount</label>
-		<input type="number" id="amount" name="amount" step="0.01" min="0" value="{{if .Expense.ID}}{{printf "%.2f" .Expense.Amount}}{{end}}" required>
-	</div>
+			<!-- Dates Section -->
+			<div class="form-section">
+				<h3 class="form-section-title">Important Dates</h3>
+				<div class="form-row form-row-thirds">
+					<div class="form-group">
+						<label for="date_opened">Date Opened</label>
+						<input type="date" id="date_opened" name="date_opened" value="{{.Expense.DateOpened}}">
+					</div>
+					<div class="form-group">
+						<label for="due_date">Due Date</label>
+						<input type="date" id="due_date" name="due_date" value="{{.Expense.DueDate}}">
+					</div>
+					<div class="form-group">
+						<label for="date_paid">Date Paid</label>
+						<input type="date" id="date_paid" name="date_paid" value="{{.Expense.DatePaid}}">
+					</div>
+				</div>
+			</div>
 
-	<div class="form-group">
-		<label for="invoice_number">Invoice Number (optional)</label>
-		<input type="text" id="invoice_number" name="invoice_number" value="{{.Expense.InvoiceNumber}}">
-	</div>
-
-	<div class="form-group">
-		<label for="status">Status</label>
-		<select id="status" name="status" required>
-			<option value="not_paid" {{if or (not .Expense.ID) (eq .Expense.Status "not_paid")}}selected{{end}}>Unpaid</option>
-			<option value="paid" {{if eq .Expense.Status "paid"}}selected{{end}}>Paid</option>
-		</select>
-	</div>
-
-	<div class="form-group">
-		<label for="payment_type">Payment Type</label>
-		<select id="payment_type" name="payment_type">
-			<option value="">Select</option>
-			<option value="cash" {{if eq .Expense.PaymentType "cash"}}selected{{end}}>Cash</option>
-			<option value="check" {{if eq .Expense.PaymentType "check"}}selected{{end}}>Check</option>
-			<option value="debit" {{if eq .Expense.PaymentType "debit"}}selected{{end}}>Debit</option>
-			<option value="credit" {{if eq .Expense.PaymentType "credit"}}selected{{end}}>Credit</option>
-		</select>
-	</div>
-
-	<div class="form-group">
-		<label for="check_number">Check Number (optional){{if .LastCheckNumber}} - Last: {{.LastCheckNumber}}{{end}}</label>
-		<input type="text" id="check_number" name="check_number" value="{{.Expense.CheckNumber}}">
-	</div>
-
-	<div class="form-group">
-		<label for="date_opened">Date Opened (optional)</label>
-		<input type="date" id="date_opened" name="date_opened" value="{{.Expense.DateOpened}}">
-	</div>
-
-	<div class="form-group">
-		<label for="due_date">Due Date (optional)</label>
-		<input type="date" id="due_date" name="due_date" value="{{.Expense.DueDate}}">
-	</div>
-
-	<div class="form-group">
-		<label for="date_paid">Date Paid (optional)</label>
-		<input type="date" id="date_paid" name="date_paid" value="{{.Expense.DatePaid}}">
-	</div>
-
-	<div class="form-group">
-		<label for="notes">Notes (optional)</label>
-		<textarea id="notes" name="notes">{{.Expense.Notes}}</textarea>
-	</div>
-
-	<div class="form-group">
-		<label for="receipt">Receipt (optional)</label>
-		{{if .Expense.ReceiptPath}}
-		<div style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-			<a href="/expenses/{{.Expense.ID}}/receipt" target="_blank" class="btn btn-secondary btn-small">View Current Receipt</a>
-			<button type="button" class="btn btn-danger btn-small" onclick="deleteReceipt({{.Expense.ID}})">Remove</button>
+			<!-- Notes Section -->
+			<div class="form-section">
+				<h3 class="form-section-title">Notes</h3>
+				<div class="form-group">
+					<textarea id="notes" name="notes" rows="3" placeholder="Add any additional notes...">{{.Expense.Notes}}</textarea>
+				</div>
+			</div>
 		</div>
-		<small style="color: #6b7280;">Upload a new file to replace the current receipt</small>
-		{{end}}
-		<input type="file" id="receipt" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.gif">
-	</div>
 
-	<div style="display: flex; gap: 0.5rem;">
-		<button type="submit" class="btn btn-primary">{{if .Expense.ID}}Update{{else}}Save{{end}}</button>
-		<a href="/expenses" class="btn btn-secondary">Cancel</a>
+		<!-- Right Column: Receipt & Actions -->
+		<div class="form-sidebar">
+			<!-- Receipt Upload Section -->
+			<div class="form-section">
+				<h3 class="form-section-title">Receipt File</h3>
+				{{if .Expense.ReceiptPath}}
+				<div class="receipt-preview">
+					<div class="receipt-preview-icon">
+						<svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+						</svg>
+					</div>
+					<div class="receipt-preview-info">
+						<span class="receipt-preview-label">Receipt attached</span>
+						<div class="receipt-preview-actions">
+							<a href="/expenses/{{.Expense.ID}}/receipt" target="_blank" class="btn btn-secondary btn-small">View</a>
+							<button type="button" class="btn btn-danger btn-small" onclick="deleteReceipt({{.Expense.ID}})">Remove</button>
+						</div>
+					</div>
+				</div>
+				<div class="form-group" style="margin-top: 1rem;">
+					<label for="receipt" class="label-hint">Replace with new file</label>
+					<input type="file" id="receipt" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.gif">
+				</div>
+				{{else}}
+				<div class="upload-area" onclick="document.getElementById('receipt').click()">
+					<svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+					</svg>
+					<span class="upload-area-text">Click to upload receipt</span>
+					<span class="upload-area-hint">PDF, JPG, PNG up to 5MB</span>
+				</div>
+				<input type="file" id="receipt" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.gif" style="display: none;">
+				{{end}}
+			</div>
+
+			<!-- Action Buttons -->
+			<div class="form-actions">
+				<button type="submit" class="btn btn-primary btn-block">
+					{{if .Expense.ID}}Update Receipt{{else}}Save Receipt{{end}}
+				</button>
+				<a href="/expenses" class="btn btn-secondary btn-block">Cancel</a>
+			</div>
+
+			{{if .Expense.ID}}
+			<div class="form-danger-zone">
+				<button type="button" class="btn btn-danger-outline btn-block" onclick="if(confirm('Delete this receipt? This cannot be undone.')) document.getElementById('delete-form').submit();">
+					Delete Receipt
+				</button>
+			</div>
+			{{end}}
+		</div>
 	</div>
 </form>
 
 {{if .Expense.ID}}
-<form action="/expenses/{{.Expense.ID}}/delete" method="POST" style="margin-top: 2rem;" onsubmit="return confirm('Delete this expense?')">
-	<button type="submit" class="btn btn-danger">Delete This Expense</button>
-</form>
+<form id="delete-form" action="/expenses/{{.Expense.ID}}/delete" method="POST" style="display: none;"></form>
 
 <script>
 function deleteReceipt(expenseId) {
-	if (!confirm('Remove this receipt?')) return;
+	if (!confirm('Remove this receipt file?')) return;
 
 	fetch('/expenses/' + expenseId + '/receipt/delete', {
 		method: 'POST'
@@ -118,4 +176,205 @@ function deleteReceipt(expenseId) {
 }
 </script>
 {{end}}
+
+<script>
+// Show/hide check number field based on payment type
+document.getElementById('payment_type').addEventListener('change', function() {
+	var checkGroup = document.getElementById('check-number-group');
+	checkGroup.style.display = this.value === 'check' ? 'block' : 'none';
+});
+</script>
+
+<style>
+.form-layout {
+	display: grid;
+	grid-template-columns: 1fr 320px;
+	gap: 2rem;
+	align-items: start;
+}
+
+@media (max-width: 900px) {
+	.form-layout {
+		grid-template-columns: 1fr;
+	}
+	.form-sidebar {
+		order: -1;
+	}
+}
+
+.form-main, .form-sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+
+.form-section {
+	background: white;
+	border: 1px solid #e5e7eb;
+	border-radius: 8px;
+	padding: 1.25rem;
+}
+
+.form-section-title {
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: #374151;
+	text-transform: uppercase;
+	letter-spacing: 0.025em;
+	margin: 0 0 1rem 0;
+	padding-bottom: 0.75rem;
+	border-bottom: 1px solid #f3f4f6;
+}
+
+.form-row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 1rem;
+}
+
+.form-row-thirds {
+	grid-template-columns: 1fr 1fr 1fr;
+}
+
+@media (max-width: 600px) {
+	.form-row, .form-row-thirds {
+		grid-template-columns: 1fr;
+	}
+}
+
+.form-section .form-group {
+	margin-bottom: 1rem;
+}
+
+.form-section .form-group:last-child {
+	margin-bottom: 0;
+}
+
+.form-row .form-group {
+	margin-bottom: 0;
+}
+
+.label-hint {
+	font-weight: 400;
+	color: #6b7280;
+	font-size: 0.8125rem;
+}
+
+.input-with-prefix {
+	display: flex;
+	align-items: stretch;
+}
+
+.input-prefix {
+	display: flex;
+	align-items: center;
+	padding: 0 0.75rem;
+	background: #f3f4f6;
+	border: 1px solid #d1d5db;
+	border-right: none;
+	border-radius: 6px 0 0 6px;
+	color: #6b7280;
+	font-weight: 500;
+}
+
+.input-with-prefix input {
+	border-radius: 0 6px 6px 0;
+	flex: 1;
+}
+
+.upload-area {
+	border: 2px dashed #d1d5db;
+	border-radius: 8px;
+	padding: 2rem 1rem;
+	text-align: center;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	background: #fafafa;
+}
+
+.upload-area:hover {
+	border-color: #3b82f6;
+	background: #eff6ff;
+}
+
+.upload-area svg {
+	color: #9ca3af;
+	margin-bottom: 0.5rem;
+}
+
+.upload-area:hover svg {
+	color: #3b82f6;
+}
+
+.upload-area-text {
+	display: block;
+	font-weight: 500;
+	color: #374151;
+	margin-bottom: 0.25rem;
+}
+
+.upload-area-hint {
+	display: block;
+	font-size: 0.75rem;
+	color: #9ca3af;
+}
+
+.receipt-preview {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	padding: 1rem;
+	background: #f0fdf4;
+	border: 1px solid #bbf7d0;
+	border-radius: 8px;
+}
+
+.receipt-preview-icon {
+	color: #16a34a;
+}
+
+.receipt-preview-info {
+	flex: 1;
+}
+
+.receipt-preview-label {
+	display: block;
+	font-weight: 500;
+	color: #166534;
+	margin-bottom: 0.5rem;
+}
+
+.receipt-preview-actions {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.form-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.btn-block {
+	width: 100%;
+	justify-content: center;
+}
+
+.form-danger-zone {
+	margin-top: 1rem;
+	padding-top: 1rem;
+	border-top: 1px solid #e5e7eb;
+}
+
+.btn-danger-outline {
+	background: white;
+	color: #dc2626;
+	border: 1px solid #fecaca;
+}
+
+.btn-danger-outline:hover {
+	background: #fef2f2;
+	border-color: #dc2626;
+}
+</style>
 {{template "footer" .}}

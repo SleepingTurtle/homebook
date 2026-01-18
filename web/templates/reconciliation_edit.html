@@ -1,27 +1,5 @@
 {{template "header" .}}
 
-{{if .Stats}}
-<!-- Floating Review Status Box -->
-<div class="review-status-box {{if eq .Stats.UnmatchedCount 0}}complete{{else}}pending{{end}}">
-	<div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-		<div style="display: flex; gap: 0.75rem; align-items: center;">
-			<span style="font-weight: 600;">{{.Stats.TotalTransactions}} transactions:</span>
-			<span style="color: #16a34a;">{{.Stats.MatchedCount}} matched</span>
-			<span style="color: #d97706;">{{.Stats.UnmatchedCount}} unmatched</span>
-			<span style="color: #6b7280;">{{.Stats.IgnoredCount}} ignored</span>
-			<span style="color: #2563eb;">{{.Stats.CreatedCount}} created</span>
-		</div>
-		{{if and (eq .Stats.UnmatchedCount 0) (ne .Reconciliation.Status "completed")}}
-		<form action="/bank-statements/{{.Reconciliation.ID}}/complete" method="POST" style="margin: 0;">
-			<button type="submit" class="btn btn-success btn-small">Mark as Completed</button>
-		</form>
-		{{else if eq .Reconciliation.Status "completed"}}
-		<span class="status status-paid">Completed</span>
-		{{end}}
-	</div>
-</div>
-{{end}}
-
 <div class="page-header">
 	<h1>Bank Statement: {{.Reconciliation.StatementDateDisplay}}</h1>
 	<div style="display: flex; gap: 0.5rem;">
@@ -35,31 +13,70 @@
 	</div>
 </div>
 
-<div class="card" style="margin-bottom: 1.5rem;">
-	<div style="display: flex; flex-wrap: wrap; gap: 2rem; align-items: flex-start;">
-		<div>
-			<div style="color: #6b7280; font-size: 0.875rem;">Account</div>
-			<div style="font-size: 1.25rem; font-weight: 600;">****{{.Reconciliation.AccountLastFour}}</div>
-		</div>
-		<div style="border-left: 1px solid #e5e7eb; padding-left: 2rem;">
-			<div style="color: #6b7280; font-size: 0.875rem;">Deposits</div>
-			<div style="font-size: 1.25rem; font-weight: 600; color: #16a34a;">+${{printf "%.2f" .Reconciliation.ElectronicDeposits}}</div>
-		</div>
-		<div>
-			<div style="color: #6b7280; font-size: 0.875rem;">Payments</div>
-			<div style="font-size: 1.25rem; font-weight: 600; color: #dc2626;">-${{printf "%.2f" .Reconciliation.ElectronicPayments}}</div>
-		</div>
-		<div>
-			<div style="color: #6b7280; font-size: 0.875rem;">Checks</div>
-			<div style="font-size: 1.25rem; font-weight: 600; color: #dc2626;">-${{printf "%.2f" .Reconciliation.ChecksPaid}}</div>
-		</div>
-		<div>
-			<div style="color: #6b7280; font-size: 0.875rem;">Fees</div>
-			<div style="font-size: 1.25rem; font-weight: 600; color: #dc2626;">-${{printf "%.2f" .Reconciliation.ServiceFees}}</div>
-		</div>
-	</div>
-</div>
+<div class="sidebar-layout">
+	<!-- Review Status Sidebar -->
+	<aside class="sidebar">
+		<div class="sidebar-filter">
+			<h3 class="sidebar-title">Review Status</h3>
+			{{if .Stats}}
+			<div class="review-sidebar {{if eq .Stats.UnmatchedCount 0}}complete{{else}}pending{{end}}">
+				<div class="review-stat">
+					<span class="review-stat-label">Total</span>
+					<span class="review-stat-value">{{.Stats.TotalTransactions}}</span>
+				</div>
+				<div class="review-stat">
+					<span class="review-stat-label">Matched</span>
+					<span class="review-stat-value" style="color: #16a34a;">{{.Stats.MatchedCount}}</span>
+				</div>
+				<div class="review-stat">
+					<span class="review-stat-label">Unmatched</span>
+					<span class="review-stat-value" style="color: #d97706;">{{.Stats.UnmatchedCount}}</span>
+				</div>
+				<div class="review-stat">
+					<span class="review-stat-label">Ignored</span>
+					<span class="review-stat-value" style="color: #6b7280;">{{.Stats.IgnoredCount}}</span>
+				</div>
+				<div class="review-stat">
+					<span class="review-stat-label">Created</span>
+					<span class="review-stat-value" style="color: #2563eb;">{{.Stats.CreatedCount}}</span>
+				</div>
+			</div>
+			{{if and (eq .Stats.UnmatchedCount 0) (ne .Reconciliation.Status "completed")}}
+			<form action="/bank-statements/{{.Reconciliation.ID}}/complete" method="POST" style="margin-top: 1rem;">
+				<button type="submit" class="btn btn-success" style="width: 100%;">Mark as Completed</button>
+			</form>
+			{{else if eq .Reconciliation.Status "completed"}}
+			<div style="margin-top: 1rem; text-align: center;">
+				<span class="status status-paid">Completed</span>
+			</div>
+			{{end}}
+			{{end}}
 
+			<h3 class="sidebar-title" style="margin-top: 1.5rem;">Account Summary</h3>
+			<div class="review-stat">
+				<span class="review-stat-label">Account</span>
+				<span class="review-stat-value">****{{.Reconciliation.AccountLastFour}}</span>
+			</div>
+			<div class="review-stat">
+				<span class="review-stat-label">Deposits</span>
+				<span class="review-stat-value" style="color: #16a34a;">+${{printf "%.2f" .Reconciliation.ElectronicDeposits}}</span>
+			</div>
+			<div class="review-stat">
+				<span class="review-stat-label">Payments</span>
+				<span class="review-stat-value" style="color: #dc2626;">-${{printf "%.2f" .Reconciliation.ElectronicPayments}}</span>
+			</div>
+			<div class="review-stat">
+				<span class="review-stat-label">Checks</span>
+				<span class="review-stat-value" style="color: #dc2626;">-${{printf "%.2f" .Reconciliation.ChecksPaid}}</span>
+			</div>
+			<div class="review-stat">
+				<span class="review-stat-label">Fees</span>
+				<span class="review-stat-value" style="color: #dc2626;">-${{printf "%.2f" .Reconciliation.ServiceFees}}</span>
+			</div>
+		</div>
+	</aside>
+
+	<main class="main-content">
 {{if .Transactions}}
 {{$reconID := .Reconciliation.ID}}
 {{$expenses := .Expenses}}
@@ -240,7 +257,7 @@
 				<td class="actions">
 					{{if eq .MatchStatus "unmatched"}}
 						<button type="button" class="btn btn-secondary btn-small" onclick="openMatchModal({{.ID}}, '{{.Description}}', {{.Amount}})">Match</button>
-						<button type="button" class="btn btn-secondary btn-small" onclick="openCreateModal({{.ID}}, '{{.Description}}', {{.Amount}}, '{{.PostingDate}}')">Create</button>
+						<button type="button" class="btn btn-secondary btn-small" onclick="openCreateModal({{.ID}}, '{{.Description}}', {{.Amount}}, '{{.PostingDate}}')">Create Receipt</button>
 						<form action="/bank-statements/{{$reconID}}/ignore" method="POST" style="display: inline; margin: 0;">
 							<input type="hidden" name="transaction_id" value="{{.ID}}">
 							<button type="submit" class="btn btn-secondary btn-small">Ignore</button>
@@ -279,9 +296,9 @@
 		<form action="/bank-statements/{{.Reconciliation.ID}}/match" method="POST">
 			<input type="hidden" name="transaction_id" id="match-txn-id">
 			<div class="form-group">
-				<label for="expense_id">Select Expense to Match</label>
+				<label for="expense_id">Select Receipt to Match</label>
 				<select name="expense_id" id="expense_id" required>
-					<option value="">-- Select Expense --</option>
+					<option value="">-- Select Receipt --</option>
 					{{range .Expenses}}
 					<option value="{{.ID}}">${{printf "%.2f" .Amount}} - {{.VendorName}} ({{.Date}})</option>
 					{{end}}
@@ -295,10 +312,10 @@
 	</div>
 </div>
 
-<!-- Create Expense Modal -->
+<!-- Create Receipt Modal -->
 <div id="create-modal" class="modal" style="display: none;">
 	<div class="modal-content">
-		<h3>Create Expense from Transaction</h3>
+		<h3>Create Receipt from Transaction</h3>
 		<p id="create-modal-desc"></p>
 		<form action="/bank-statements/{{.Reconciliation.ID}}/create-expense" method="POST" enctype="multipart/form-data">
 			<input type="hidden" name="transaction_id" id="create-txn-id">
@@ -317,29 +334,43 @@
 			</div>
 			<div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
 				<button type="button" class="btn btn-secondary" onclick="closeCreateModal()">Cancel</button>
-				<button type="submit" class="btn btn-primary">Create Expense</button>
+				<button type="submit" class="btn btn-primary">Create Receipt</button>
 			</div>
 		</form>
 	</div>
 </div>
 
 <style>
-.review-status-box {
-	position: sticky;
-	top: 0;
-	z-index: 100;
-	padding: 0.75rem 1.5rem;
-	margin: -1rem -1rem 1rem -1rem;
-	border-radius: 0;
-	font-size: 0.875rem;
+.review-sidebar {
+	padding: 0.75rem;
+	border-radius: 6px;
+	margin-bottom: 0.5rem;
 }
-.review-status-box.pending {
+.review-sidebar.pending {
 	background: #fef3c7;
-	border-bottom: 2px solid #f59e0b;
+	border: 1px solid #f59e0b;
 }
-.review-status-box.complete {
+.review-sidebar.complete {
 	background: #dcfce7;
-	border-bottom: 2px solid #16a34a;
+	border: 1px solid #16a34a;
+}
+.review-stat {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 0.5rem 0;
+	border-bottom: 1px solid #e5e7eb;
+}
+.review-stat:last-child {
+	border-bottom: none;
+}
+.review-stat-label {
+	font-size: 0.875rem;
+	color: #6b7280;
+}
+.review-stat-value {
+	font-weight: 600;
+	font-size: 1rem;
 }
 .modal {
 	position: fixed;
@@ -490,5 +521,7 @@ applyFilters('payments');
 {{else}}
 <p class="empty-state">No transactions found for this reconciliation.</p>
 {{end}}
+	</main>
+</div>
 
 {{template "footer" .}}

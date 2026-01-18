@@ -17,7 +17,7 @@
 	{{end}}
 </div>
 
-<h2 style="margin-top: 2rem;">Expenses</h2>
+<h2 style="margin-top: 2rem;">Receipts</h2>
 
 {{if .Expenses}}
 <table>
@@ -63,11 +63,11 @@
 	</tbody>
 </table>
 {{else}}
-<p class="empty-state">No expenses found for this vendor.</p>
+<p class="empty-state">No receipts found for this vendor.</p>
 {{end}}
 
 <div style="margin-top: 2rem;">
-	<a href="/expenses/new?vendor_id={{.Vendor.ID}}" class="btn btn-primary">Add Expense for {{.Vendor.Name}}</a>
+	<a href="/expenses/new?vendor_id={{.Vendor.ID}}" class="btn btn-primary">Add Receipt for {{.Vendor.Name}}</a>
 	<a href="/vendors" class="btn btn-secondary">Back to Vendors</a>
 </div>
 {{template "footer" .}}
