@@ -1003,3 +1003,27 @@ func (h *Handler) ReconciliationsUpload(w http.ResponseWriter, r *http.Request) 
 	// Redirect to edit page
 	http.Redirect(w, r, fmt.Sprintf("/reconciliations/%d/edit", id), http.StatusSeeOther)
 }
+
+// JobStatus returns the status of a background job as JSON (for polling)
+func (h *Handler) JobStatus(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	job, err := h.db.GetJob(id)
+	if err != nil {
+		http.Error(w, "Job not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"id":       job.ID,
+		"status":   job.Status,
+		"progress": job.Progress,
+		"result":   job.Result,
+	})
+}

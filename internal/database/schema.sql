@@ -99,6 +99,20 @@ CREATE TABLE IF NOT EXISTS bank_reconciliations (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_type TEXT NOT NULL,
+    payload TEXT DEFAULT '',
+    status TEXT CHECK(status IN ('pending', 'running', 'completed', 'failed')) DEFAULT 'pending',
+    progress INTEGER DEFAULT 0,
+    result TEXT DEFAULT '',
+    attempts INTEGER DEFAULT 0,
+    max_attempts INTEGER DEFAULT 3,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    started_at DATETIME,
+    completed_at DATETIME
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
     token TEXT PRIMARY KEY,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -118,3 +132,4 @@ CREATE INDEX IF NOT EXISTS idx_payroll_employee_id ON payroll(employee_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_reconciliations_date ON bank_reconciliations(statement_date);
 CREATE INDEX IF NOT EXISTS idx_reconciliations_status ON bank_reconciliations(status);
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);

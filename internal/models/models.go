@@ -294,3 +294,18 @@ type MonthOption struct {
 	Label    string // "January 2025" format
 	Selected bool
 }
+
+// Job represents a background job in the queue
+type Job struct {
+	ID          int64
+	JobType     string
+	Payload     string // JSON payload
+	Status      string // pending, running, completed, failed
+	Progress    int    // 0-100
+	Result      string // JSON result or error message
+	Attempts    int
+	MaxAttempts int
+	CreatedAt   time.Time
+	StartedAt   *time.Time
+	CompletedAt *time.Time
+}
