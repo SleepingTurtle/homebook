@@ -9,8 +9,7 @@
 	<thead>
 		<tr>
 			<th>Statement Date</th>
-			<th class="money">Starting</th>
-			<th class="money">Ending</th>
+			<th>Account</th>
 			<th class="money">Deposits</th>
 			<th class="money">Payments</th>
 			<th class="money">Checks</th>
@@ -23,12 +22,11 @@
 		{{range .Reconciliations}}
 		<tr>
 			<td><a href="/bank-statements/{{.ID}}">{{.StatementDateDisplay}}</a></td>
-			<td class="money">${{printf "%.2f" .StartingBalance}}</td>
-			<td class="money">${{printf "%.2f" .EndingBalance}}</td>
-			<td class="money" style="color: #16a34a;">{{if gt .ElectronicDeposits 0.0}}${{printf "%.2f" .ElectronicDeposits}}{{else}}-{{end}}</td>
-			<td class="money" style="color: #dc2626;">{{if gt .ElectronicPayments 0.0}}${{printf "%.2f" .ElectronicPayments}}{{else}}-{{end}}</td>
-			<td class="money" style="color: #dc2626;">{{if gt .ChecksPaid 0.0}}${{printf "%.2f" .ChecksPaid}}{{else}}-{{end}}</td>
-			<td class="money" style="color: #dc2626;">{{if gt .ServiceFees 0.0}}${{printf "%.2f" .ServiceFees}}{{else}}-{{end}}</td>
+			<td>{{if .AccountLastFour}}****{{.AccountLastFour}}{{else}}-{{end}}</td>
+			<td class="money" style="color: #16a34a;">{{if gt .ElectronicDeposits 0.0}}<span class="fmt-money">{{printf "%.2f" .ElectronicDeposits}}</span>{{else}}-{{end}}</td>
+			<td class="money" style="color: #dc2626;">{{if gt .ElectronicPayments 0.0}}<span class="fmt-money">{{printf "%.2f" .ElectronicPayments}}</span>{{else}}-{{end}}</td>
+			<td class="money" style="color: #dc2626;">{{if gt .ChecksPaid 0.0}}<span class="fmt-money">{{printf "%.2f" .ChecksPaid}}</span>{{else}}-{{end}}</td>
+			<td class="money" style="color: #dc2626;">{{if gt .ServiceFees 0.0}}<span class="fmt-money">{{printf "%.2f" .ServiceFees}}</span>{{else}}-{{end}}</td>
 			<td>
 				{{if eq .Status "completed"}}
 					<span class="status status-paid">Completed</span>
@@ -46,7 +44,7 @@
 				{{if eq .Status "completed"}}
 					<a href="/bank-statements/{{.ID}}" class="btn btn-secondary btn-small">View</a>
 				{{else if eq .Status "parsed"}}
-					<a href="/bank-statements/{{.ID}}/review" class="btn btn-secondary btn-small">Review</a>
+					<a href="/bank-statements/{{.ID}}" class="btn btn-secondary btn-small">Review</a>
 				{{else if eq .Status "parsing"}}
 					<span class="btn btn-secondary btn-small" style="opacity: 0.5;">Parsing...</span>
 				{{else}}
@@ -167,6 +165,14 @@ document.getElementById('upload-form').addEventListener('submit', async function
 		btn.disabled = false;
 		btn.textContent = 'Upload Statement';
 		progress.style.display = 'none';
+	}
+});
+
+// Format money values with commas
+document.querySelectorAll('.fmt-money').forEach(function(el) {
+	var num = parseFloat(el.textContent);
+	if (!isNaN(num)) {
+		el.textContent = '$' + num.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 	}
 });
 </script>

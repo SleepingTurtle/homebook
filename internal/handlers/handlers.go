@@ -1025,42 +1025,6 @@ func (h *Handler) ReconciliationsUpload(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// ReconciliationsDetail shows a read-only view of a completed reconciliation
-func (h *Handler) ReconciliationsDetail(w http.ResponseWriter, r *http.Request) {
-	l := logger.FromContext(r.Context())
-
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		http.Redirect(w, r, "/bank-statements", http.StatusFound)
-		return
-	}
-
-	recon, err := h.db.GetReconciliation(id)
-	if err != nil {
-		l.Error("reconciliation_detail_get_error", "id", id, "error", err.Error())
-		http.Redirect(w, r, "/bank-statements", http.StatusFound)
-		return
-	}
-
-	transactions, err := h.db.GetBankTransactions(id)
-	if err != nil {
-		l.Error("reconciliation_detail_transactions_error", "id", id, "error", err.Error())
-	}
-
-	stats, err := h.db.GetReconciliationStats(id)
-	if err != nil {
-		l.Error("reconciliation_detail_stats_error", "id", id, "error", err.Error())
-	}
-
-	h.render(w, r, "reconciliation_detail.html", map[string]any{
-		"Title":          "Bank Statement Details",
-		"Active":         "expenses",
-		"Reconciliation": recon,
-		"Transactions":   transactions,
-		"Stats":          stats,
-	})
-}
-
 // ReconciliationsComplete marks a reconciliation as completed
 func (h *Handler) ReconciliationsComplete(w http.ResponseWriter, r *http.Request) {
 	l := logger.FromContext(r.Context())
@@ -1179,14 +1143,14 @@ func (h *Handler) ReconciliationsMatch(w http.ResponseWriter, r *http.Request) {
 	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
 	if err != nil {
 		l.Error("match_invalid_txn_id", "error", err.Error())
-		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 		return
 	}
 
 	expenseID, err := strconv.ParseInt(r.FormValue("expense_id"), 10, 64)
 	if err != nil {
 		l.Error("match_invalid_expense_id", "error", err.Error())
-		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 		return
 	}
 
@@ -1196,7 +1160,7 @@ func (h *Handler) ReconciliationsMatch(w http.ResponseWriter, r *http.Request) {
 		l.Info("transaction_matched", "txn_id", txnID, "expense_id", expenseID)
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 }
 
 // ReconciliationsUnmatch removes a match from a bank transaction
@@ -1212,7 +1176,7 @@ func (h *Handler) ReconciliationsUnmatch(w http.ResponseWriter, r *http.Request)
 	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
 	if err != nil {
 		l.Error("unmatch_invalid_txn_id", "error", err.Error())
-		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 		return
 	}
 
@@ -1220,7 +1184,7 @@ func (h *Handler) ReconciliationsUnmatch(w http.ResponseWriter, r *http.Request)
 	txn, err := h.db.GetBankTransaction(txnID)
 	if err != nil {
 		l.Error("unmatch_get_txn_error", "txn_id", txnID, "error", err.Error())
-		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 		return
 	}
 
@@ -1239,7 +1203,7 @@ func (h *Handler) ReconciliationsUnmatch(w http.ResponseWriter, r *http.Request)
 		l.Info("transaction_unmatched", "txn_id", txnID)
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 }
 
 // ReconciliationsIgnore marks a bank transaction as ignored
@@ -1255,7 +1219,7 @@ func (h *Handler) ReconciliationsIgnore(w http.ResponseWriter, r *http.Request) 
 	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
 	if err != nil {
 		l.Error("ignore_invalid_txn_id", "error", err.Error())
-		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 		return
 	}
 
@@ -1270,7 +1234,7 @@ func (h *Handler) ReconciliationsIgnore(w http.ResponseWriter, r *http.Request) 
 		l.Info("transaction_ignored", "txn_id", txnID, "reason", reason)
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 }
 
 // ReconciliationsCreateExpense creates a new expense from a bank transaction
@@ -1286,14 +1250,14 @@ func (h *Handler) ReconciliationsCreateExpense(w http.ResponseWriter, r *http.Re
 	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
 	if err != nil {
 		l.Error("create_expense_invalid_txn_id", "error", err.Error())
-		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 		return
 	}
 
 	vendorID, err := strconv.ParseInt(r.FormValue("vendor_id"), 10, 64)
 	if err != nil {
 		l.Error("create_expense_invalid_vendor_id", "error", err.Error())
-		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 		return
 	}
 
@@ -1301,7 +1265,7 @@ func (h *Handler) ReconciliationsCreateExpense(w http.ResponseWriter, r *http.Re
 	txn, err := h.db.GetBankTransaction(txnID)
 	if err != nil {
 		l.Error("create_expense_get_txn_error", "txn_id", txnID, "error", err.Error())
-		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 		return
 	}
 
@@ -1338,7 +1302,7 @@ func (h *Handler) ReconciliationsCreateExpense(w http.ResponseWriter, r *http.Re
 	expenseID, err := h.db.CreateExpense(expense)
 	if err != nil {
 		l.Error("create_expense_error", "error", err.Error())
-		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 		return
 	}
 
@@ -1349,7 +1313,7 @@ func (h *Handler) ReconciliationsCreateExpense(w http.ResponseWriter, r *http.Re
 		l.Info("expense_created_from_txn", "txn_id", txnID, "expense_id", expenseID)
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 }
 
 // ReconciliationsUpdateType updates the transaction type for a bank transaction
@@ -1365,7 +1329,7 @@ func (h *Handler) ReconciliationsUpdateType(w http.ResponseWriter, r *http.Reque
 	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
 	if err != nil {
 		l.Error("update_type_invalid_txn_id", "error", err.Error())
-		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 		return
 	}
 
@@ -1382,7 +1346,7 @@ func (h *Handler) ReconciliationsUpdateType(w http.ResponseWriter, r *http.Reque
 		l.Info("transaction_type_updated", "txn_id", txnID, "type", txnType)
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 }
 
 // JobStatus returns the status of a background job as JSON (for polling)

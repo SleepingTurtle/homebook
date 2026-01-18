@@ -1,205 +1,272 @@
 {{template "header" .}}
-<div class="page-header">
-	<h1>Review Reconciliation: {{.Reconciliation.StatementDateDisplay}}</h1>
-	<div style="display: flex; gap: 0.5rem;">
-		{{if and .Stats (eq .Stats.UnmatchedCount 0)}}
+
+{{if .Stats}}
+<!-- Floating Review Status Box -->
+<div class="review-status-box {{if eq .Stats.UnmatchedCount 0}}complete{{else}}pending{{end}}">
+	<div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+		<div style="display: flex; gap: 0.75rem; align-items: center;">
+			<span style="font-weight: 600;">{{.Stats.TotalTransactions}} transactions:</span>
+			<span style="color: #16a34a;">{{.Stats.MatchedCount}} matched</span>
+			<span style="color: #d97706;">{{.Stats.UnmatchedCount}} unmatched</span>
+			<span style="color: #6b7280;">{{.Stats.IgnoredCount}} ignored</span>
+			<span style="color: #2563eb;">{{.Stats.CreatedCount}} created</span>
+		</div>
+		{{if and (eq .Stats.UnmatchedCount 0) (ne .Reconciliation.Status "completed")}}
 		<form action="/bank-statements/{{.Reconciliation.ID}}/complete" method="POST" style="margin: 0;">
-			<button type="submit" class="btn btn-success">Mark as Completed</button>
+			<button type="submit" class="btn btn-success btn-small">Mark as Completed</button>
 		</form>
+		{{else if eq .Reconciliation.Status "completed"}}
+		<span class="status status-paid">Completed</span>
 		{{end}}
+	</div>
+</div>
+{{end}}
+
+<div class="page-header">
+	<h1>Bank Statement: {{.Reconciliation.StatementDateDisplay}}</h1>
+	<div style="display: flex; gap: 0.5rem;">
 		<form action="/bank-statements/{{.Reconciliation.ID}}/reparse" method="POST" style="margin: 0;">
 			<button type="submit" class="btn btn-secondary" onclick="return confirm('Re-parse the statement? This will delete existing transactions and re-import them.')">Reparse Statement</button>
 		</form>
-		<a href="/bank-statements/{{.Reconciliation.ID}}" class="btn btn-secondary">View Details</a>
 		<a href="/bank-statements" class="btn btn-secondary">Back</a>
 	</div>
 </div>
 
 <div class="card" style="margin-bottom: 1.5rem;">
-	<div style="display: flex; flex-wrap: wrap; gap: 2rem;">
+	<div style="display: flex; flex-wrap: wrap; gap: 2rem; align-items: flex-start;">
 		<div>
 			<div style="color: #6b7280; font-size: 0.875rem;">Account</div>
 			<div style="font-size: 1.25rem; font-weight: 600;">****{{.Reconciliation.AccountLastFour}}</div>
 		</div>
-		<div>
-			<div style="color: #6b7280; font-size: 0.875rem;">Starting Balance</div>
-			<div style="font-size: 1.25rem; font-weight: 600;">${{printf "%.2f" .Reconciliation.StartingBalance}}</div>
+		<div style="border-left: 1px solid #e5e7eb; padding-left: 2rem;">
+			<div style="color: #6b7280; font-size: 0.875rem;">Deposits</div>
+			<div style="font-size: 1.25rem; font-weight: 600; color: #16a34a;">+${{printf "%.2f" .Reconciliation.ElectronicDeposits}}</div>
 		</div>
 		<div>
-			<div style="color: #6b7280; font-size: 0.875rem;">Ending Balance</div>
-			<div style="font-size: 1.25rem; font-weight: 600;">${{printf "%.2f" .Reconciliation.EndingBalance}}</div>
+			<div style="color: #6b7280; font-size: 0.875rem;">Payments</div>
+			<div style="font-size: 1.25rem; font-weight: 600; color: #dc2626;">-${{printf "%.2f" .Reconciliation.ElectronicPayments}}</div>
 		</div>
 		<div>
-			<div style="color: #6b7280; font-size: 0.875rem;">Status</div>
-			<div style="font-size: 1.25rem;">
-				{{if eq .Reconciliation.Status "completed"}}
-					<span class="status status-paid">Completed</span>
-				{{else if eq .Reconciliation.Status "parsed"}}
-					<span class="status status-unpaid">Ready to Review</span>
-				{{else}}
-					<span class="status">{{.Reconciliation.Status}}</span>
-				{{end}}
-			</div>
+			<div style="color: #6b7280; font-size: 0.875rem;">Checks</div>
+			<div style="font-size: 1.25rem; font-weight: 600; color: #dc2626;">-${{printf "%.2f" .Reconciliation.ChecksPaid}}</div>
+		</div>
+		<div>
+			<div style="color: #6b7280; font-size: 0.875rem;">Fees</div>
+			<div style="font-size: 1.25rem; font-weight: 600; color: #dc2626;">-${{printf "%.2f" .Reconciliation.ServiceFees}}</div>
 		</div>
 	</div>
 </div>
 
-{{if .Stats}}
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
-	<div class="card" style="margin-bottom: 0;">
-		<h3 style="margin-top: 0; margin-bottom: 1rem;">Matching Summary</h3>
-		<div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-			<div style="text-align: center; padding: 0.5rem 1rem; background: #f3f4f6; border-radius: 8px; flex: 1;">
-				<div style="font-size: 1.5rem; font-weight: 700;">{{.Stats.TotalTransactions}}</div>
-				<div style="color: #6b7280; font-size: 0.75rem;">Total</div>
-			</div>
-			<div style="text-align: center; padding: 0.5rem 1rem; background: #dcfce7; border-radius: 8px; flex: 1;">
-				<div style="font-size: 1.5rem; font-weight: 700; color: #16a34a;">{{.Stats.MatchedCount}}</div>
-				<div style="color: #6b7280; font-size: 0.75rem;">Matched</div>
-			</div>
-			<div style="text-align: center; padding: 0.5rem 1rem; background: #fef3c7; border-radius: 8px; flex: 1;">
-				<div style="font-size: 1.5rem; font-weight: 700; color: #d97706;">{{.Stats.UnmatchedCount}}</div>
-				<div style="color: #6b7280; font-size: 0.75rem;">Unmatched</div>
-			</div>
-			<div style="text-align: center; padding: 0.5rem 1rem; background: #e5e7eb; border-radius: 8px; flex: 1;">
-				<div style="font-size: 1.5rem; font-weight: 700; color: #6b7280;">{{.Stats.IgnoredCount}}</div>
-				<div style="color: #6b7280; font-size: 0.75rem;">Ignored</div>
-			</div>
-			<div style="text-align: center; padding: 0.5rem 1rem; background: #dbeafe; border-radius: 8px; flex: 1;">
-				<div style="font-size: 1.5rem; font-weight: 700; color: #2563eb;">{{.Stats.CreatedCount}}</div>
-				<div style="color: #6b7280; font-size: 0.75rem;">Created</div>
-			</div>
-		</div>
-	</div>
-
-	<div class="card" style="margin-bottom: 0;">
-		<h3 style="margin-top: 0; margin-bottom: 1rem;">Statement Summary (from PDF)</h3>
-		<div style="display: flex; flex-direction: column; gap: 0.5rem;">
-			<div style="display: flex; justify-content: space-between; align-items: center;">
-				<span style="color: #6b7280;">Electronic Deposits</span>
-				<span style="font-weight: 600; color: #16a34a;">+${{printf "%.2f" .Reconciliation.ElectronicDeposits}}</span>
-			</div>
-			<div style="display: flex; justify-content: space-between; align-items: center;">
-				<span style="color: #6b7280;">Electronic Payments</span>
-				<span style="font-weight: 600; color: #dc2626;">-${{printf "%.2f" .Reconciliation.ElectronicPayments}}</span>
-			</div>
-			<div style="display: flex; justify-content: space-between; align-items: center;">
-				<span style="color: #6b7280;">Checks Paid</span>
-				<span style="font-weight: 600; color: #dc2626;">-${{printf "%.2f" .Reconciliation.ChecksPaid}}</span>
-			</div>
-			<div style="display: flex; justify-content: space-between; align-items: center;">
-				<span style="color: #6b7280;">Service Fees</span>
-				<span style="font-weight: 600; color: #dc2626;">-${{printf "%.2f" .Reconciliation.ServiceFees}}</span>
-			</div>
-		</div>
-	</div>
-</div>
-{{end}}
-
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-	<h2 style="margin: 0;">Transactions</h2>
-	<div style="display: flex; gap: 0.25rem;">
-		<button type="button" class="btn btn-small filter-btn active" data-filter="all">All</button>
-		<button type="button" class="btn btn-small filter-btn" data-filter="unmatched">Unmatched</button>
-		<button type="button" class="btn btn-small filter-btn" data-filter="matched">Matched</button>
-		<button type="button" class="btn btn-small filter-btn" data-filter="created">Created</button>
-		<button type="button" class="btn btn-small filter-btn" data-filter="ignored">Ignored</button>
-	</div>
-</div>
 {{if .Transactions}}
-<table id="transactions-table">
-	<thead>
-		<tr>
-			<th>Date</th>
-			<th>Description</th>
-			<th>Type</th>
-			<th class="money">Amount</th>
-			<th>Status</th>
-			<th>Match</th>
-			<th class="actions">Actions</th>
-		</tr>
-	</thead>
-	<tbody>
-		{{$reconID := .Reconciliation.ID}}
-		{{$expenses := .Expenses}}
-		{{$vendors := .Vendors}}
-		{{range .Transactions}}
-		<tr data-status="{{.MatchStatus}}">
-			<td>{{.PostingDate}}</td>
-			<td>
-				{{.Description}}
-				{{if .CheckNumber}}<br><small style="color: #6b7280;">Check #{{.CheckNumber}}</small>{{end}}
-				{{if .VendorHint}}<br><small style="color: #6b7280;">Vendor: {{.VendorHint}}</small>{{end}}
-			</td>
-			<td>
-				<form action="/bank-statements/{{$reconID}}/update-type" method="POST" style="margin: 0;">
-					<input type="hidden" name="transaction_id" value="{{.ID}}">
-					<select name="transaction_type" onchange="this.form.submit()" style="font-size: 0.75rem; padding: 2px 4px; border: 1px solid #d1d5db; border-radius: 4px; background: #f9fafb;">
-						<option value="deposit" {{if eq .TransactionType "deposit"}}selected{{end}}>deposit</option>
-						<option value="ach" {{if eq .TransactionType "ach"}}selected{{end}}>ach</option>
-						<option value="refund" {{if eq .TransactionType "refund"}}selected{{end}}>refund</option>
-						<option value="check" {{if eq .TransactionType "check"}}selected{{end}}>check</option>
-						<option value="debit" {{if eq .TransactionType "debit"}}selected{{end}}>debit</option>
-						<option value="transfer" {{if eq .TransactionType "transfer"}}selected{{end}}>transfer</option>
-						<option value="fee" {{if eq .TransactionType "fee"}}selected{{end}}>fee</option>
-						<option value="other" {{if eq .TransactionType "other"}}selected{{end}}>other</option>
-					</select>
-				</form>
-			</td>
-			<td class="money">
-				{{if lt .Amount 0.0}}
-					<span style="color: #dc2626;">${{printf "%.2f" .Amount}}</span>
-				{{else}}
-					<span style="color: #16a34a;">+${{printf "%.2f" .Amount}}</span>
-				{{end}}
-			</td>
-			<td>
-				{{if eq .MatchStatus "matched"}}
-					<span class="status status-paid">Matched</span>
-				{{else if eq .MatchStatus "ignored"}}
-					<span class="status" style="background: #e5e7eb; color: #6b7280;">Ignored</span>
-				{{else if eq .MatchStatus "created"}}
-					<span class="status" style="background: #dbeafe; color: #2563eb;">Created</span>
-				{{else}}
-					<span class="status status-unpaid">Unmatched</span>
-				{{end}}
-			</td>
-			<td>
-				{{if .MatchedExpenseID}}
-					<small>{{.MatchedExpenseVendor}}<br>{{.MatchedExpenseDate}}</small>
-					{{if .MatchConfidence}}
-						<br><span style="font-size: 0.625rem; color: #9ca3af;">{{.MatchConfidence}}</span>
+{{$reconID := .Reconciliation.ID}}
+{{$expenses := .Expenses}}
+{{$vendors := .Vendors}}
+
+<!-- Deposits & Credits Section -->
+<div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid #16a34a;">
+	<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+		<h3 style="margin: 0; color: #16a34a;">Deposits & Credits</h3>
+		<div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+			<div style="display: flex; gap: 0.25rem;">
+				<button type="button" class="btn btn-small filter-btn active" data-table="deposits" data-filter-type="type" data-filter="all">All Types</button>
+				<button type="button" class="btn btn-small filter-btn" data-table="deposits" data-filter-type="type" data-filter="deposit">Deposit</button>
+				<button type="button" class="btn btn-small filter-btn" data-table="deposits" data-filter-type="type" data-filter="ach">ACH</button>
+				<button type="button" class="btn btn-small filter-btn" data-table="deposits" data-filter-type="type" data-filter="refund">Refund</button>
+				<button type="button" class="btn btn-small filter-btn" data-table="deposits" data-filter-type="type" data-filter="credit">Credit</button>
+			</div>
+			<div style="display: flex; gap: 0.25rem;">
+				<button type="button" class="btn btn-small status-btn active" data-table="deposits" data-filter-type="status" data-filter="all">All</button>
+				<button type="button" class="btn btn-small status-btn" data-table="deposits" data-filter-type="status" data-filter="unmatched">Unmatched</button>
+				<button type="button" class="btn btn-small status-btn" data-table="deposits" data-filter-type="status" data-filter="matched">Matched</button>
+				<button type="button" class="btn btn-small status-btn" data-table="deposits" data-filter-type="status" data-filter="ignored">Ignored</button>
+			</div>
+		</div>
+	</div>
+	<table id="deposits-table" class="txn-table">
+		<thead>
+			<tr>
+				<th>Date</th>
+				<th>Description</th>
+				<th>Type</th>
+				<th class="money">Amount</th>
+				<th>Status</th>
+				<th class="actions">Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			{{range .Transactions}}
+			{{if ge .Amount 0.0}}
+			<tr data-status="{{.MatchStatus}}" data-type="{{.TransactionType}}" data-amount="{{.Amount}}">
+				<td>{{.PostingDate}}</td>
+				<td>
+					{{.Description}}
+					{{if .VendorHint}}<br><small style="color: #6b7280;">{{.VendorHint}}</small>{{end}}
+				</td>
+				<td>
+					<form action="/bank-statements/{{$reconID}}/update-type" method="POST" style="margin: 0;">
+						<input type="hidden" name="transaction_id" value="{{.ID}}">
+						<select name="transaction_type" onchange="this.form.submit()" style="font-size: 0.75rem; padding: 2px 4px; border: 1px solid #d1d5db; border-radius: 4px; background: #f9fafb;">
+							<option value="deposit" {{if eq .TransactionType "deposit"}}selected{{end}}>deposit</option>
+							<option value="ach" {{if eq .TransactionType "ach"}}selected{{end}}>ach</option>
+							<option value="refund" {{if eq .TransactionType "refund"}}selected{{end}}>refund</option>
+							<option value="credit" {{if eq .TransactionType "credit"}}selected{{end}}>credit</option>
+						</select>
+					</form>
+				</td>
+				<td class="money"><span style="color: #16a34a;">+${{printf "%.2f" .Amount}}</span></td>
+				<td>
+					{{if eq .MatchStatus "matched"}}
+						<span class="status status-paid">Matched</span>
+					{{else if eq .MatchStatus "ignored"}}
+						<span class="status" style="background: #e5e7eb; color: #6b7280;">Ignored</span>
+					{{else}}
+						<span class="status status-unpaid">Unmatched</span>
 					{{end}}
-				{{else if eq .MatchStatus "ignored"}}
-					<small style="color: #6b7280;">{{.Notes}}</small>
-				{{else}}
-					<span style="color: #9ca3af;">-</span>
-				{{end}}
-			</td>
-			<td class="actions">
-				{{if eq .MatchStatus "unmatched"}}
-					<button type="button" class="btn btn-secondary btn-small" onclick="openMatchModal({{.ID}}, '{{.Description}}', {{.Amount}})">Match</button>
-					<button type="button" class="btn btn-secondary btn-small" onclick="openCreateModal({{.ID}}, '{{.Description}}', {{.Amount}}, '{{.PostingDate}}')">Create</button>
-					<form action="/bank-statements/{{$reconID}}/ignore" method="POST" style="display: inline; margin: 0;">
+				</td>
+				<td class="actions">
+					{{if eq .MatchStatus "unmatched"}}
+						<form action="/bank-statements/{{$reconID}}/ignore" method="POST" style="display: inline; margin: 0;">
+							<input type="hidden" name="transaction_id" value="{{.ID}}">
+							<button type="submit" class="btn btn-secondary btn-small">Ignore</button>
+						</form>
+					{{else if eq .MatchStatus "ignored"}}
+						<form action="/bank-statements/{{$reconID}}/unmatch" method="POST" style="display: inline; margin: 0;">
+							<input type="hidden" name="transaction_id" value="{{.ID}}">
+							<button type="submit" class="btn btn-secondary btn-small">Restore</button>
+						</form>
+					{{else}}
+						<form action="/bank-statements/{{$reconID}}/unmatch" method="POST" style="display: inline; margin: 0;">
+							<input type="hidden" name="transaction_id" value="{{.ID}}">
+							<button type="submit" class="btn btn-secondary btn-small">Unmatch</button>
+						</form>
+					{{end}}
+				</td>
+			</tr>
+			{{end}}
+			{{end}}
+		</tbody>
+		<tfoot>
+			<tr>
+				<td colspan="3" style="text-align: right; font-weight: 600;">Visible Total:</td>
+				<td class="money"><span id="deposits-total" style="color: #16a34a; font-weight: 600;">$0.00</span></td>
+				<td colspan="2"></td>
+			</tr>
+		</tfoot>
+	</table>
+</div>
+
+<!-- Payments & Debits Section -->
+<div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid #dc2626;">
+	<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+		<h3 style="margin: 0; color: #dc2626;">Payments & Debits</h3>
+		<div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+			<div style="display: flex; gap: 0.25rem;">
+				<button type="button" class="btn btn-small filter-btn active" data-table="payments" data-filter-type="type" data-filter="all">All Types</button>
+				<button type="button" class="btn btn-small filter-btn" data-table="payments" data-filter-type="type" data-filter="check">Check</button>
+				<button type="button" class="btn btn-small filter-btn" data-table="payments" data-filter-type="type" data-filter="debit">Debit</button>
+				<button type="button" class="btn btn-small filter-btn" data-table="payments" data-filter-type="type" data-filter="ach">ACH</button>
+				<button type="button" class="btn btn-small filter-btn" data-table="payments" data-filter-type="type" data-filter="transfer">Transfer</button>
+				<button type="button" class="btn btn-small filter-btn" data-table="payments" data-filter-type="type" data-filter="fee">Fee</button>
+			</div>
+			<div style="display: flex; gap: 0.25rem;">
+				<button type="button" class="btn btn-small status-btn active" data-table="payments" data-filter-type="status" data-filter="all">All</button>
+				<button type="button" class="btn btn-small status-btn" data-table="payments" data-filter-type="status" data-filter="unmatched">Unmatched</button>
+				<button type="button" class="btn btn-small status-btn" data-table="payments" data-filter-type="status" data-filter="matched">Matched</button>
+				<button type="button" class="btn btn-small status-btn" data-table="payments" data-filter-type="status" data-filter="created">Created</button>
+				<button type="button" class="btn btn-small status-btn" data-table="payments" data-filter-type="status" data-filter="ignored">Ignored</button>
+			</div>
+		</div>
+	</div>
+	<table id="payments-table" class="txn-table">
+		<thead>
+			<tr>
+				<th>Date</th>
+				<th>Description</th>
+				<th>Type</th>
+				<th class="money">Amount</th>
+				<th>Status</th>
+				<th>Match</th>
+				<th class="actions">Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			{{range .Transactions}}
+			{{if lt .Amount 0.0}}
+			<tr data-status="{{.MatchStatus}}" data-type="{{.TransactionType}}" data-amount="{{.Amount}}">
+				<td>{{.PostingDate}}</td>
+				<td>
+					{{.Description}}
+					{{if .CheckNumber}}<br><small style="color: #6b7280;">Check #{{.CheckNumber}}</small>{{end}}
+					{{if .VendorHint}}<br><small style="color: #6b7280;">{{.VendorHint}}</small>{{end}}
+				</td>
+				<td>
+					<form action="/bank-statements/{{$reconID}}/update-type" method="POST" style="margin: 0;">
 						<input type="hidden" name="transaction_id" value="{{.ID}}">
-						<button type="submit" class="btn btn-secondary btn-small">Ignore</button>
+						<select name="transaction_type" onchange="this.form.submit()" style="font-size: 0.75rem; padding: 2px 4px; border: 1px solid #d1d5db; border-radius: 4px; background: #f9fafb;">
+							<option value="check" {{if eq .TransactionType "check"}}selected{{end}}>check</option>
+							<option value="debit" {{if eq .TransactionType "debit"}}selected{{end}}>debit</option>
+							<option value="ach" {{if eq .TransactionType "ach"}}selected{{end}}>ach</option>
+							<option value="transfer" {{if eq .TransactionType "transfer"}}selected{{end}}>transfer</option>
+							<option value="fee" {{if eq .TransactionType "fee"}}selected{{end}}>fee</option>
+							<option value="withdrawal" {{if eq .TransactionType "withdrawal"}}selected{{end}}>withdrawal</option>
+							<option value="other" {{if eq .TransactionType "other"}}selected{{end}}>other</option>
+						</select>
 					</form>
-				{{else if or (eq .MatchStatus "matched") (eq .MatchStatus "created")}}
-					<form action="/bank-statements/{{$reconID}}/unmatch" method="POST" style="display: inline; margin: 0;">
-						<input type="hidden" name="transaction_id" value="{{.ID}}">
-						<button type="submit" class="btn btn-secondary btn-small">Unmatch</button>
-					</form>
-				{{else if eq .MatchStatus "ignored"}}
-					<form action="/bank-statements/{{$reconID}}/unmatch" method="POST" style="display: inline; margin: 0;">
-						<input type="hidden" name="transaction_id" value="{{.ID}}">
-						<button type="submit" class="btn btn-secondary btn-small">Restore</button>
-					</form>
-				{{end}}
-			</td>
-		</tr>
-		{{end}}
-	</tbody>
-</table>
+				</td>
+				<td class="money"><span style="color: #dc2626;">${{printf "%.2f" .Amount}}</span></td>
+				<td>
+					{{if eq .MatchStatus "matched"}}
+						<span class="status status-paid">Matched</span>
+					{{else if eq .MatchStatus "ignored"}}
+						<span class="status" style="background: #e5e7eb; color: #6b7280;">Ignored</span>
+					{{else if eq .MatchStatus "created"}}
+						<span class="status" style="background: #dbeafe; color: #2563eb;">Created</span>
+					{{else}}
+						<span class="status status-unpaid">Unmatched</span>
+					{{end}}
+				</td>
+				<td>
+					{{if .MatchedExpenseID}}
+						<small>{{.MatchedExpenseVendor}}<br>{{.MatchedExpenseDate}}</small>
+					{{else if eq .MatchStatus "ignored"}}
+						<small style="color: #6b7280;">{{.Notes}}</small>
+					{{else}}
+						<span style="color: #9ca3af;">-</span>
+					{{end}}
+				</td>
+				<td class="actions">
+					{{if eq .MatchStatus "unmatched"}}
+						<button type="button" class="btn btn-secondary btn-small" onclick="openMatchModal({{.ID}}, '{{.Description}}', {{.Amount}})">Match</button>
+						<button type="button" class="btn btn-secondary btn-small" onclick="openCreateModal({{.ID}}, '{{.Description}}', {{.Amount}}, '{{.PostingDate}}')">Create</button>
+						<form action="/bank-statements/{{$reconID}}/ignore" method="POST" style="display: inline; margin: 0;">
+							<input type="hidden" name="transaction_id" value="{{.ID}}">
+							<button type="submit" class="btn btn-secondary btn-small">Ignore</button>
+						</form>
+					{{else if or (eq .MatchStatus "matched") (eq .MatchStatus "created")}}
+						<form action="/bank-statements/{{$reconID}}/unmatch" method="POST" style="display: inline; margin: 0;">
+							<input type="hidden" name="transaction_id" value="{{.ID}}">
+							<button type="submit" class="btn btn-secondary btn-small">Unmatch</button>
+						</form>
+					{{else if eq .MatchStatus "ignored"}}
+						<form action="/bank-statements/{{$reconID}}/unmatch" method="POST" style="display: inline; margin: 0;">
+							<input type="hidden" name="transaction_id" value="{{.ID}}">
+							<button type="submit" class="btn btn-secondary btn-small">Restore</button>
+						</form>
+					{{end}}
+				</td>
+			</tr>
+			{{end}}
+			{{end}}
+		</tbody>
+		<tfoot>
+			<tr>
+				<td colspan="3" style="text-align: right; font-weight: 600;">Visible Total:</td>
+				<td class="money"><span id="payments-total" style="color: #dc2626; font-weight: 600;">$0.00</span></td>
+				<td colspan="3"></td>
+			</tr>
+		</tfoot>
+	</table>
+</div>
 
 <!-- Match Modal -->
 <div id="match-modal" class="modal" style="display: none;">
@@ -250,6 +317,23 @@
 </div>
 
 <style>
+.review-status-box {
+	position: sticky;
+	top: 0;
+	z-index: 100;
+	padding: 0.75rem 1.5rem;
+	margin: -1rem -1rem 1rem -1rem;
+	border-radius: 0;
+	font-size: 0.875rem;
+}
+.review-status-box.pending {
+	background: #fef3c7;
+	border-bottom: 2px solid #f59e0b;
+}
+.review-status-box.complete {
+	background: #dcfce7;
+	border-bottom: 2px solid #16a34a;
+}
 .modal {
 	position: fixed;
 	top: 0;
@@ -272,17 +356,24 @@
 .modal-content h3 {
 	margin-top: 0;
 }
-.filter-btn {
+.filter-btn, .status-btn {
 	background: #e5e7eb;
 	color: #374151;
 	border: none;
 }
-.filter-btn:hover {
+.filter-btn:hover, .status-btn:hover {
 	background: #d1d5db;
 }
 .filter-btn.active {
 	background: #3b82f6;
 	color: white;
+}
+.status-btn.active {
+	background: #6b7280;
+	color: white;
+}
+.txn-table {
+	margin-bottom: 0;
 }
 </style>
 
@@ -315,27 +406,79 @@ document.getElementById('create-modal').addEventListener('click', function(e) {
 	if (e.target === this) closeCreateModal();
 });
 
-// Transaction filtering
+// Track active filters per table
+var activeFilters = {
+	deposits: { type: 'all', status: 'all' },
+	payments: { type: 'all', status: 'all' }
+};
+
+function applyFilters(tableName) {
+	var table = document.getElementById(tableName + '-table');
+	var typeFilter = activeFilters[tableName].type;
+	var statusFilter = activeFilters[tableName].status;
+	var total = 0;
+	var count = 0;
+
+	table.querySelectorAll('tbody tr').forEach(function(row) {
+		var typeMatch = typeFilter === 'all' || row.dataset.type === typeFilter;
+		var statusMatch = statusFilter === 'all' || row.dataset.status === statusFilter;
+		var visible = typeMatch && statusMatch;
+		row.style.display = visible ? '' : 'none';
+
+		if (visible) {
+			var amount = parseFloat(row.dataset.amount) || 0;
+			total += amount;
+			count++;
+		}
+	});
+
+	// Update the total display
+	var totalEl = document.getElementById(tableName + '-total');
+	if (totalEl) {
+		var absTotal = Math.abs(total);
+		var formatted = absTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+		var prefix = tableName === 'deposits' ? '+$' : '$';
+		totalEl.textContent = prefix + formatted + ' (' + count + ')';
+	}
+}
+
+// Type filter buttons
 document.querySelectorAll('.filter-btn').forEach(function(btn) {
 	btn.addEventListener('click', function() {
+		var tableName = this.dataset.table;
 		var filter = this.dataset.filter;
 
-		// Update active button
-		document.querySelectorAll('.filter-btn').forEach(function(b) {
+		// Update active button in this group
+		document.querySelectorAll('.filter-btn[data-table="' + tableName + '"]').forEach(function(b) {
 			b.classList.remove('active');
 		});
 		this.classList.add('active');
 
-		// Filter rows
-		document.querySelectorAll('#transactions-table tbody tr').forEach(function(row) {
-			if (filter === 'all' || row.dataset.status === filter) {
-				row.style.display = '';
-			} else {
-				row.style.display = 'none';
-			}
-		});
+		activeFilters[tableName].type = filter;
+		applyFilters(tableName);
 	});
 });
+
+// Status filter buttons
+document.querySelectorAll('.status-btn').forEach(function(btn) {
+	btn.addEventListener('click', function() {
+		var tableName = this.dataset.table;
+		var filter = this.dataset.filter;
+
+		// Update active button in this group
+		document.querySelectorAll('.status-btn[data-table="' + tableName + '"]').forEach(function(b) {
+			b.classList.remove('active');
+		});
+		this.classList.add('active');
+
+		activeFilters[tableName].status = filter;
+		applyFilters(tableName);
+	});
+});
+
+// Initialize totals on page load
+applyFilters('deposits');
+applyFilters('payments');
 </script>
 {{else}}
 <p class="empty-state">No transactions found for this reconciliation.</p>
