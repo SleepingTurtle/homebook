@@ -18,12 +18,12 @@ type ParsedStatement struct {
 	EndingBalance    float64
 	Transactions     []ParsedTransaction
 	// Summary totals from statement (for verification)
-	SummaryDeposits    float64
-	SummaryPayments    float64
-	SummaryChecks      float64
-	SummaryFees        float64
-	SummaryCredits     float64
-	SummaryWithdrawals float64
+	ElectronicDeposits float64
+	ElectronicPayments float64
+	ChecksPaid         float64
+	ServiceFees        float64
+	OtherCredits       float64
+	OtherWithdrawals   float64
 }
 
 // ParsedTransaction represents a single parsed transaction
@@ -144,12 +144,12 @@ func (p *TDBankParser) parseSummaryTotals(text string, stmt *ParsedStatement) {
 	// Pattern: "Electronic Deposits                38,934.62"
 	// These are on the same line, not followed by transaction details
 	patterns := map[string]*float64{
-		`Electronic Deposits\s+([\d,]+\.\d{2})`: &stmt.SummaryDeposits,
-		`Electronic Payments\s+([\d,]+\.\d{2})`: &stmt.SummaryPayments,
-		`Checks Paid\s+([\d,]+\.\d{2})`:         &stmt.SummaryChecks,
-		`Service Charges\s+([\d,]+\.\d{2})`:     &stmt.SummaryFees,
-		`Other Credits\s+([\d,]+\.\d{2})`:       &stmt.SummaryCredits,
-		`Other Withdrawals\s+([\d,]+\.\d{2})`:   &stmt.SummaryWithdrawals,
+		`Electronic Deposits\s+([\d,]+\.\d{2})`: &stmt.ElectronicDeposits,
+		`Electronic Payments\s+([\d,]+\.\d{2})`: &stmt.ElectronicPayments,
+		`Checks Paid\s+([\d,]+\.\d{2})`:         &stmt.ChecksPaid,
+		`Service Charges\s+([\d,]+\.\d{2})`:     &stmt.ServiceFees,
+		`Other Credits\s+([\d,]+\.\d{2})`:       &stmt.OtherCredits,
+		`Other Withdrawals\s+([\d,]+\.\d{2})`:   &stmt.OtherWithdrawals,
 	}
 
 	for pattern, target := range patterns {
@@ -160,7 +160,7 @@ func (p *TDBankParser) parseSummaryTotals(text string, stmt *ParsedStatement) {
 	}
 
 	p.debugLog("Summary totals: Deposits=%.2f, Payments=%.2f, Checks=%.2f, Fees=%.2f",
-		stmt.SummaryDeposits, stmt.SummaryPayments, stmt.SummaryChecks, stmt.SummaryFees)
+		stmt.ElectronicDeposits, stmt.ElectronicPayments, stmt.ChecksPaid, stmt.ServiceFees)
 }
 
 // verifyTotals compares parsed transaction totals against summary totals
@@ -185,12 +185,12 @@ func (p *TDBankParser) verifyTotals(stmt *ParsedStatement) {
 	}
 
 	p.debugLog("Verification (parsed vs expected):")
-	p.debugLog("  Deposits:    %.2f vs %.2f (diff: %.2f)", depositSum, stmt.SummaryDeposits, depositSum-stmt.SummaryDeposits)
-	p.debugLog("  Payments:    %.2f vs %.2f (diff: %.2f)", paymentSum, stmt.SummaryPayments, paymentSum-stmt.SummaryPayments)
-	p.debugLog("  Checks:      %.2f vs %.2f (diff: %.2f)", checkSum, stmt.SummaryChecks, checkSum-stmt.SummaryChecks)
-	p.debugLog("  Fees:        %.2f vs %.2f (diff: %.2f)", feeSum, stmt.SummaryFees, feeSum-stmt.SummaryFees)
-	p.debugLog("  Credits:     %.2f vs %.2f (diff: %.2f)", creditSum, stmt.SummaryCredits, creditSum-stmt.SummaryCredits)
-	p.debugLog("  Withdrawals: %.2f vs %.2f (diff: %.2f)", withdrawalSum, stmt.SummaryWithdrawals, withdrawalSum-stmt.SummaryWithdrawals)
+	p.debugLog("  Deposits:    %.2f vs %.2f (diff: %.2f)", depositSum, stmt.ElectronicDeposits, depositSum-stmt.ElectronicDeposits)
+	p.debugLog("  Payments:    %.2f vs %.2f (diff: %.2f)", paymentSum, stmt.ElectronicPayments, paymentSum-stmt.ElectronicPayments)
+	p.debugLog("  Checks:      %.2f vs %.2f (diff: %.2f)", checkSum, stmt.ChecksPaid, checkSum-stmt.ChecksPaid)
+	p.debugLog("  Fees:        %.2f vs %.2f (diff: %.2f)", feeSum, stmt.ServiceFees, feeSum-stmt.ServiceFees)
+	p.debugLog("  Credits:     %.2f vs %.2f (diff: %.2f)", creditSum, stmt.OtherCredits, creditSum-stmt.OtherCredits)
+	p.debugLog("  Withdrawals: %.2f vs %.2f (diff: %.2f)", withdrawalSum, stmt.OtherWithdrawals, withdrawalSum-stmt.OtherWithdrawals)
 }
 
 // debugLog prints debug output if debug mode is enabled
