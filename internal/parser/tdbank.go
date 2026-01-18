@@ -18,10 +18,12 @@ type ParsedStatement struct {
 	EndingBalance    float64
 	Transactions     []ParsedTransaction
 	// Summary totals from statement (for verification)
-	ElectronicDeposits float64
-	ElectronicPayments float64
-	ChecksPaid         float64
-	ServiceFees        float64
+	SummaryDeposits    float64
+	SummaryPayments    float64
+	SummaryChecks      float64
+	SummaryFees        float64
+	SummaryCredits     float64
+	SummaryWithdrawals float64
 }
 
 // ParsedTransaction represents a single parsed transaction
@@ -73,6 +75,9 @@ func (p *TDBankParser) Parse(pdfPath string) (*ParsedStatement, error) {
 	p.debugLog("Header parsed: Account=%s, Beginning=%.2f, Ending=%.2f",
 		stmt.AccountLastFour, stmt.BeginningBalance, stmt.EndingBalance)
 
+	// Parse summary totals from ACCOUNT SUMMARY section
+	p.parseSummaryTotals(text, stmt)
+
 	// Split into sections and parse each
 	sections := p.splitSections(text)
 
@@ -115,58 +120,77 @@ func (p *TDBankParser) Parse(pdfPath string) (*ParsedStatement, error) {
 
 	p.debugLog("Total transactions: %d", len(stmt.Transactions))
 
-	// Extract subtotals from the full text (sections end at "Subtotal:" so we can't get it from section content)
-	// Use section headers with newlines to avoid matching summary lines at top of statement
-	stmt.ElectronicDeposits = p.extractSectionSubtotal(text, "Electronic Deposits\n")
-	stmt.ElectronicPayments = p.extractSectionSubtotal(text, "Electronic Payments\n")
-	stmt.ChecksPaid = p.extractSectionSubtotal(text, "Checks Paid\n")
-	stmt.ServiceFees = p.extractSectionSubtotal(text, "Service Charges\n")
-
-	p.debugLog("Subtotals: Deposits=%.2f, Payments=%.2f, Checks=%.2f, Fees=%.2f",
-		stmt.ElectronicDeposits, stmt.ElectronicPayments, stmt.ChecksPaid, stmt.ServiceFees)
+	// Verify parsed totals against summary
+	p.verifyTotals(stmt)
 
 	return stmt, nil
 }
 
-// extractSectionSubtotal finds the subtotal for a specific section in the full text
-// It looks for the section header, then finds "Subtotal:" before the next section starts
-func (p *TDBankParser) extractSectionSubtotal(text, sectionName string) float64 {
-	// Find the section header
-	idx := strings.Index(text, sectionName)
-	if idx == -1 {
-		return 0
+// parseSummaryTotals extracts the summary totals from ACCOUNT SUMMARY section
+func (p *TDBankParser) parseSummaryTotals(text string, stmt *ParsedStatement) {
+	// Find ACCOUNT SUMMARY section
+	summaryIdx := strings.Index(text, "ACCOUNT SUMMARY")
+	if summaryIdx == -1 {
+		return
 	}
 
-	// Look for "Subtotal:" after this section header but before the next section
-	afterSection := text[idx+len(sectionName):]
+	// Get a chunk of text after ACCOUNT SUMMARY (the summary table)
+	summaryEnd := summaryIdx + 1000
+	if summaryEnd > len(text) {
+		summaryEnd = len(text)
+	}
+	summarySection := text[summaryIdx:summaryEnd]
 
-	// Find where the next section starts (to limit our search)
-	nextSectionMarkers := []string{
-		"Electronic Deposits\n",
-		"Other Credits\n",
-		"Checks Paid\n",
-		"Electronic Payments\n",
-		"Other Withdrawals\n",
-		"Service Charges\n",
-		"DAILY BALANCE SUMMARY",
+	// Pattern: "Electronic Deposits                38,934.62"
+	// These are on the same line, not followed by transaction details
+	patterns := map[string]*float64{
+		`Electronic Deposits\s+([\d,]+\.\d{2})`: &stmt.SummaryDeposits,
+		`Electronic Payments\s+([\d,]+\.\d{2})`: &stmt.SummaryPayments,
+		`Checks Paid\s+([\d,]+\.\d{2})`:         &stmt.SummaryChecks,
+		`Service Charges\s+([\d,]+\.\d{2})`:     &stmt.SummaryFees,
+		`Other Credits\s+([\d,]+\.\d{2})`:       &stmt.SummaryCredits,
+		`Other Withdrawals\s+([\d,]+\.\d{2})`:   &stmt.SummaryWithdrawals,
 	}
 
-	endIdx := len(afterSection)
-	for _, marker := range nextSectionMarkers {
-		if markerIdx := strings.Index(afterSection, marker); markerIdx != -1 && markerIdx < endIdx {
-			endIdx = markerIdx
+	for pattern, target := range patterns {
+		re := regexp.MustCompile(pattern)
+		if match := re.FindStringSubmatch(summarySection); len(match) > 1 {
+			*target = parseAmount(match[1])
 		}
 	}
 
-	// Search for subtotal only within this section's bounds
-	sectionContent := afterSection[:endIdx]
+	p.debugLog("Summary totals: Deposits=%.2f, Payments=%.2f, Checks=%.2f, Fees=%.2f",
+		stmt.SummaryDeposits, stmt.SummaryPayments, stmt.SummaryChecks, stmt.SummaryFees)
+}
 
-	// Find the subtotal line - it appears after the transactions
-	subtotalRe := regexp.MustCompile(`Subtotal:\s*\$?([\d,]+\.\d{2})`)
-	if match := subtotalRe.FindStringSubmatch(sectionContent); len(match) > 1 {
-		return parseAmount(match[1])
+// verifyTotals compares parsed transaction totals against summary totals
+func (p *TDBankParser) verifyTotals(stmt *ParsedStatement) {
+	var depositSum, paymentSum, checkSum, feeSum, creditSum, withdrawalSum float64
+
+	for _, txn := range stmt.Transactions {
+		switch txn.TransactionType {
+		case "deposit":
+			depositSum += txn.Amount
+		case "credit":
+			creditSum += txn.Amount
+		case "debit":
+			paymentSum += -txn.Amount // Make positive for comparison
+		case "check":
+			checkSum += -txn.Amount
+		case "fee":
+			feeSum += -txn.Amount
+		case "withdrawal":
+			withdrawalSum += -txn.Amount
+		}
 	}
-	return 0
+
+	p.debugLog("Verification (parsed vs expected):")
+	p.debugLog("  Deposits:    %.2f vs %.2f (diff: %.2f)", depositSum, stmt.SummaryDeposits, depositSum-stmt.SummaryDeposits)
+	p.debugLog("  Payments:    %.2f vs %.2f (diff: %.2f)", paymentSum, stmt.SummaryPayments, paymentSum-stmt.SummaryPayments)
+	p.debugLog("  Checks:      %.2f vs %.2f (diff: %.2f)", checkSum, stmt.SummaryChecks, checkSum-stmt.SummaryChecks)
+	p.debugLog("  Fees:        %.2f vs %.2f (diff: %.2f)", feeSum, stmt.SummaryFees, feeSum-stmt.SummaryFees)
+	p.debugLog("  Credits:     %.2f vs %.2f (diff: %.2f)", creditSum, stmt.SummaryCredits, creditSum-stmt.SummaryCredits)
+	p.debugLog("  Withdrawals: %.2f vs %.2f (diff: %.2f)", withdrawalSum, stmt.SummaryWithdrawals, withdrawalSum-stmt.SummaryWithdrawals)
 }
 
 // debugLog prints debug output if debug mode is enabled
@@ -195,21 +219,17 @@ func (p *TDBankParser) extractText(pdfPath string) (string, error) {
 }
 
 // truncateAtCheckImages removes the check image pages from the text
-// These pages have format like "#2730     12/01                $500.00"
 func (p *TDBankParser) truncateAtCheckImages(text string) string {
-	// Find "DAILY BALANCE SUMMARY" - everything after this section is check images
-	// The balance summary is followed by date/balance pairs, then check images start
+	// Find "DAILY BALANCE SUMMARY" - everything after the page containing this is check images
 	balanceSummaryIdx := strings.LastIndex(text, "DAILY BALANCE SUMMARY")
 	if balanceSummaryIdx == -1 {
 		return text
 	}
 
-	// Find the end of the balance summary section
-	// Look for the page footer after the balance table
+	// Find the end of the balance summary section (next page footer)
 	afterSummary := text[balanceSummaryIdx:]
 	footerIdx := strings.Index(afterSummary, "Call 1-800-937-2000")
 	if footerIdx != -1 {
-		// Include up to the footer
 		return text[:balanceSummaryIdx+footerIdx]
 	}
 
@@ -218,13 +238,8 @@ func (p *TDBankParser) truncateAtCheckImages(text string) string {
 
 // Regex patterns for parsing
 var (
-	// Statement period: "Dec 01 2025-Dec 31 2025" or "Statement Period: Dec 01 2025-Dec 31 2025"
-	periodPattern = regexp.MustCompile(`Statement Period:\s+(\w+)\s+\d+\s+(\d{4})`)
-
-	// Account number: "Account # 428-0712609" or "Primary Account #: 428-0712609"
-	accountPattern = regexp.MustCompile(`Account\s*#[:\s]+[\d-]*(\d{4})`)
-
-	// Balance patterns - handle both with and without dollar sign
+	periodPattern           = regexp.MustCompile(`Statement Period:\s+(\w+)\s+\d+\s+(\d{4})`)
+	accountPattern          = regexp.MustCompile(`Account\s*#[:\s]+[\d-]*(\d{4})`)
 	beginningBalancePattern = regexp.MustCompile(`Beginning\s+Balance\s+\$?([\d,]+\.\d{2})`)
 	endingBalancePattern    = regexp.MustCompile(`Ending\s+Balance\s+\$?(-?[\d,]+\.\d{2})`)
 )
@@ -233,12 +248,10 @@ var (
 func (p *TDBankParser) parseHeader(text string) (*ParsedStatement, error) {
 	stmt := &ParsedStatement{}
 
-	// Extract account number (last 4 digits)
 	if match := accountPattern.FindStringSubmatch(text); len(match) > 1 {
 		stmt.AccountLastFour = match[1]
 	}
 
-	// Extract statement period to determine year and month
 	if match := periodPattern.FindStringSubmatch(text); len(match) > 2 {
 		year, _ := strconv.Atoi(match[2])
 		p.statementYear = year
@@ -246,12 +259,10 @@ func (p *TDBankParser) parseHeader(text string) (*ParsedStatement, error) {
 		stmt.StatementMonth = fmt.Sprintf("%d-%02d", year, p.statementMonth)
 	}
 
-	// Extract beginning balance
 	if match := beginningBalancePattern.FindStringSubmatch(text); len(match) > 1 {
 		stmt.BeginningBalance = parseAmount(match[1])
 	}
 
-	// Extract ending balance (can be negative)
 	if match := endingBalancePattern.FindStringSubmatch(text); len(match) > 1 {
 		stmt.EndingBalance = parseAmount(match[1])
 	}
@@ -259,129 +270,119 @@ func (p *TDBankParser) parseHeader(text string) (*ParsedStatement, error) {
 	return stmt, nil
 }
 
-// splitSections divides the text into named sections, handling "(continued)" headers
+// splitSections extracts each transaction section from the text
+// This is the key function - it must correctly identify section boundaries
 func (p *TDBankParser) splitSections(text string) map[string]string {
 	sections := make(map[string]string)
 
-	// Define section headers (including continued variations)
+	// Section patterns - we look for the header followed by POSTING DATE on next line
+	// This distinguishes transaction sections from summary mentions
+	//
+	// Example in text:
+	//   Electronic Deposits
+	//   POSTING DATE      DESCRIPTION                                      AMOUNT
+	//   12/01             CCD DEPOSIT...                                   1,148.90
+
 	type sectionDef struct {
-		headers []string
-		ends    []string
+		// Patterns that start this section (including "continued" variants)
+		startPatterns []*regexp.Regexp
+		// Markers that end this section
+		endMarkers []string
 	}
 
+	// Build regex patterns that match section headers
+	// We require POSTING DATE or DATE header on a nearby line to confirm it's a transaction section
 	sectionDefs := map[string]sectionDef{
 		"deposits": {
-			headers: []string{"Electronic Deposits\n", "Electronic Deposits (continued)"},
-			ends:    []string{"Other Credits", "Checks Paid", "Subtotal:"},
+			startPatterns: []*regexp.Regexp{
+				regexp.MustCompile(`Electronic Deposits\s*\n+POSTING DATE`),
+				regexp.MustCompile(`Electronic Deposits \(continued\)\s*\n+POSTING DATE`),
+			},
+			endMarkers: []string{"Other Credits", "Checks Paid", "Subtotal:"},
 		},
 		"credits": {
-			headers: []string{"Other Credits\n"},
-			ends:    []string{"Checks Paid", "Electronic Payments", "Subtotal:"},
+			startPatterns: []*regexp.Regexp{
+				regexp.MustCompile(`Other Credits\s*\n+POSTING DATE`),
+			},
+			endMarkers: []string{"Checks Paid", "Electronic Payments", "Subtotal:"},
 		},
 		"checks": {
-			headers: []string{"Checks Paid"},
-			ends:    []string{"Electronic Payments", "Subtotal:"},
+			startPatterns: []*regexp.Regexp{
+				// Checks section has different header: DATE SERIAL NO. AMOUNT
+				regexp.MustCompile(`Checks Paid[^\n]*\n+DATE\s+SERIAL`),
+			},
+			endMarkers: []string{"Electronic Payments", "Subtotal:"},
 		},
 		"payments": {
-			headers: []string{"Electronic Payments\n", "Electronic Payments (continued)"},
-			ends:    []string{"Other Withdrawals", "Subtotal:"},
+			startPatterns: []*regexp.Regexp{
+				regexp.MustCompile(`Electronic Payments\s*\n+POSTING DATE`),
+				regexp.MustCompile(`Electronic Payments \(continued\)\s*\n+POSTING DATE`),
+			},
+			endMarkers: []string{"Other Withdrawals", "Subtotal:"},
 		},
 		"withdrawals": {
-			headers: []string{"Other Withdrawals\n"},
-			ends:    []string{"Service Charges", "Subtotal:"},
+			startPatterns: []*regexp.Regexp{
+				regexp.MustCompile(`Other Withdrawals\s*\n+POSTING DATE`),
+			},
+			endMarkers: []string{"Service Charges", "Subtotal:"},
 		},
 		"fees": {
-			headers: []string{"Service Charges\n"},
-			ends:    []string{"DAILY BALANCE SUMMARY", "Subtotal:"},
+			startPatterns: []*regexp.Regexp{
+				regexp.MustCompile(`Service Charges\s*\n+POSTING DATE`),
+			},
+			endMarkers: []string{"DAILY BALANCE SUMMARY", "Subtotal:"},
 		},
 	}
 
-	// Page markers to skip
-	pageMarkers := []string{
+	// Page markers to stop at
+	pageBreakMarkers := []string{
 		"Call 1-800-937-2000",
 		"Bank Deposits FDIC Insured",
-		"STATEMENT OF ACCOUNT",
-		"TRINI BREAKFAST SHED",
-		"Page:",
-		"Statement Period:",
-		"DAILY ACCOUNT ACTIVITY",
-		"POSTING DATE",
 	}
 
 	for sectionName, def := range sectionDefs {
 		var allContent strings.Builder
 
-		for _, header := range def.headers {
-			// Find all occurrences of this header
-			searchStart := 0
-			for {
-				idx := strings.Index(text[searchStart:], header)
-				if idx == -1 {
-					break
+		for _, pattern := range def.startPatterns {
+			// Find all matches of this pattern
+			matches := pattern.FindAllStringIndex(text, -1)
+
+			for _, match := range matches {
+				// Start after the header lines (pattern includes POSTING DATE line)
+				startIdx := match[1]
+
+				// Skip to next line after POSTING DATE header
+				remaining := text[startIdx:]
+				if nlIdx := strings.Index(remaining, "\n"); nlIdx != -1 {
+					startIdx += nlIdx + 1
 				}
-				absIdx := searchStart + idx
 
-				// Start after the header
-				contentStart := absIdx + len(header)
+				// Find end of this section chunk
+				remaining = text[startIdx:]
+				endIdx := len(remaining)
 
-				// Skip the column header line (POSTING DATE DESCRIPTION AMOUNT)
-				remaining := text[contentStart:]
-				if strings.HasPrefix(strings.TrimSpace(remaining), "POSTING DATE") {
-					if nlIdx := strings.Index(remaining, "\n"); nlIdx != -1 {
-						contentStart += nlIdx + 1
+				// Check section end markers
+				for _, endMarker := range def.endMarkers {
+					if idx := strings.Index(remaining, endMarker); idx != -1 && idx < endIdx {
+						endIdx = idx
 					}
 				}
 
-				// For checks section, skip the "No. Checks:" line and column headers
-				if sectionName == "checks" {
-					remaining = text[contentStart:]
-					// Skip until we see the first date pattern
-					lines := strings.Split(remaining, "\n")
-					for i, line := range lines {
-						if regexp.MustCompile(`^\d{2}/\d{2}\s`).MatchString(strings.TrimSpace(line)) {
-							// Found first transaction line
-							skipLen := 0
-							for j := 0; j < i; j++ {
-								skipLen += len(lines[j]) + 1
-							}
-							contentStart += skipLen
-							break
-						}
+				// Check page break markers
+				for _, marker := range pageBreakMarkers {
+					if idx := strings.Index(remaining, marker); idx != -1 && idx < endIdx {
+						endIdx = idx
 					}
 				}
 
-				// Find the end of this section chunk
-				contentEnd := len(text)
-				remaining = text[contentStart:]
-
-				for _, endMarker := range def.ends {
-					if endIdx := strings.Index(remaining, endMarker); endIdx != -1 {
-						if contentStart+endIdx < contentEnd {
-							contentEnd = contentStart + endIdx
-						}
-					}
-				}
-
-				// Also end at page breaks
-				for _, pageMarker := range pageMarkers {
-					if endIdx := strings.Index(remaining, pageMarker); endIdx != -1 {
-						if contentStart+endIdx < contentEnd {
-							contentEnd = contentStart + endIdx
-						}
-					}
-				}
-
-				// Extract content
-				chunk := text[contentStart:contentEnd]
-
-				// Clean up the chunk - remove page footers/headers that might be embedded
+				// Extract and clean the chunk
+				chunk := remaining[:endIdx]
 				chunk = p.cleanSectionContent(chunk)
 
-				allContent.WriteString(chunk)
-				allContent.WriteString("\n")
-
-				// Move search forward
-				searchStart = absIdx + len(header)
+				if strings.TrimSpace(chunk) != "" {
+					allContent.WriteString(chunk)
+					allContent.WriteString("\n")
+				}
 			}
 		}
 
@@ -391,7 +392,7 @@ func (p *TDBankParser) splitSections(text string) map[string]string {
 	return sections
 }
 
-// cleanSectionContent removes page headers/footers from section content
+// cleanSectionContent removes page headers/footers and other noise
 func (p *TDBankParser) cleanSectionContent(content string) string {
 	lines := strings.Split(content, "\n")
 	var cleaned []string
@@ -403,6 +404,11 @@ func (p *TDBankParser) cleanSectionContent(content string) string {
 		"xxxxxx",
 		"Page:",
 		"DAILY ACCOUNT ACTIVITY",
+		"POSTING DATE",
+		"TRINI BREAKFAST SHED",
+		"Statement Period:",
+		"Cust Ref #:",
+		"Primary Account #:",
 	}
 
 	for _, line := range lines {
@@ -436,7 +442,6 @@ func (p *TDBankParser) cleanSectionContent(content string) string {
 }
 
 // Transaction line pattern - date at start, amount at end
-// Handles varying whitespace between description and amount
 var transactionLinePattern = regexp.MustCompile(`^(\d{2}/\d{2})\s+(.+?)\s{2,}([\d,]+\.\d{2})\s*$`)
 
 // Continuation line - starts with significant whitespace, no date
@@ -511,7 +516,6 @@ func (p *TDBankParser) parseChecks(section string) []ParsedTransaction {
 	seen := make(map[string]bool) // Dedupe by check number
 
 	// Pattern matches: DATE SERIAL AMOUNT
-	// The asterisk indicates a break in serial sequence
 	checkPattern := regexp.MustCompile(`(\d{2}/\d{2})\s+(\d+)\*?\s+([\d,]+\.\d{2})`)
 
 	matches := checkPattern.FindAllStringSubmatch(section, -1)
@@ -519,7 +523,6 @@ func (p *TDBankParser) parseChecks(section string) []ParsedTransaction {
 		if len(match) >= 4 {
 			checkNum := match[2]
 
-			// Skip duplicates (same check appears in both columns sometimes)
 			if seen[checkNum] {
 				continue
 			}
@@ -528,7 +531,7 @@ func (p *TDBankParser) parseChecks(section string) []ParsedTransaction {
 			txn := ParsedTransaction{
 				PostingDate:     p.formatDate(match[1]),
 				Description:     "Check #" + checkNum,
-				Amount:          -parseAmount(match[3]), // Negative for checks (money out)
+				Amount:          -parseAmount(match[3]), // Negative for checks
 				TransactionType: "check",
 				CheckNumber:     checkNum,
 				Category:        "expense_check",
@@ -541,11 +544,7 @@ func (p *TDBankParser) parseChecks(section string) []ParsedTransaction {
 }
 
 // parsePayments parses the Electronic Payments section
-// These entries can span multiple lines:
-// 12/02  DEBIT POS AP, AUT 120225 DDA PURCHASE AP                    1,525.50
-//
-//	JETRO CASH CARRY                 BROOKLYN             * NY
-//	4085404039877380
+// These entries can span multiple lines
 func (p *TDBankParser) parsePayments(section string) []ParsedTransaction {
 	if strings.TrimSpace(section) == "" {
 		return nil
@@ -560,7 +559,7 @@ func (p *TDBankParser) parsePayments(section string) []ParsedTransaction {
 
 		// Check for new transaction line (starts with date)
 		if match := transactionLinePattern.FindStringSubmatch(line); len(match) > 3 {
-			// Save previous transaction if exists
+			// Save previous transaction
 			if currentTxn != nil {
 				p.finalizeTransaction(currentTxn)
 				transactions = append(transactions, *currentTxn)
@@ -569,14 +568,14 @@ func (p *TDBankParser) parsePayments(section string) []ParsedTransaction {
 			currentTxn = &ParsedTransaction{
 				PostingDate:     p.formatDate(match[1]),
 				Description:     strings.TrimSpace(match[2]),
-				Amount:          -parseAmount(match[3]), // Negative for payments (money out)
+				Amount:          -parseAmount(match[3]), // Negative for payments
 				TransactionType: "debit",
 			}
 		} else if currentTxn != nil {
-			// Check for continuation line (indented, no date)
+			// Check for continuation line
 			if match := continuationLinePattern.FindStringSubmatch(line); len(match) > 1 {
-				// Append to description, but skip card numbers (16 digits)
 				continuation := strings.TrimSpace(match[1])
+				// Skip card numbers (16 digits)
 				if !regexp.MustCompile(`^\d{16}$`).MatchString(continuation) {
 					currentTxn.Description += " " + continuation
 				}
@@ -661,13 +660,13 @@ func (p *TDBankParser) parseFees(section string) []ParsedTransaction {
 	return transactions
 }
 
-// finalizeTransaction sets category and vendor hint for a transaction
+// finalizeTransaction sets category and vendor hint
 func (p *TDBankParser) finalizeTransaction(txn *ParsedTransaction) {
 	txn.Category = categorizeTransaction(txn.TransactionType, txn.Description, txn.Amount)
 	txn.VendorHint = extractVendorHint(txn.Description)
 }
 
-// formatDate converts MM/DD to YYYY-MM-DD using statement year/month
+// formatDate converts MM/DD to YYYY-MM-DD
 func (p *TDBankParser) formatDate(mmdd string) string {
 	parts := strings.Split(mmdd, "/")
 	if len(parts) != 2 {
@@ -677,7 +676,6 @@ func (p *TDBankParser) formatDate(mmdd string) string {
 	month, _ := strconv.Atoi(parts[0])
 	day, _ := strconv.Atoi(parts[1])
 
-	// Handle year boundary
 	year := p.statementYear
 	if p.statementMonth == 12 && month == 1 {
 		year++
@@ -688,7 +686,7 @@ func (p *TDBankParser) formatDate(mmdd string) string {
 	return fmt.Sprintf("%d-%02d-%02d", year, month, day)
 }
 
-// parseAmount converts string like "1,234.56" or "-1,234.56" to float64
+// parseAmount converts "1,234.56" or "-1,234.56" to float64
 func parseAmount(s string) float64 {
 	s = strings.ReplaceAll(s, ",", "")
 	s = strings.ReplaceAll(s, "$", "")
@@ -696,7 +694,6 @@ func parseAmount(s string) float64 {
 	return f
 }
 
-// monthNameToNumber converts month name to number
 func monthNameToNumber(name string) int {
 	months := map[string]int{
 		"jan": 1, "january": 1,
@@ -715,7 +712,7 @@ func monthNameToNumber(name string) int {
 	return months[strings.ToLower(name)]
 }
 
-// Vendor extraction patterns - map known bank descriptions to clean vendor names
+// Vendor extraction patterns
 var vendorPatterns = map[string]*regexp.Regexp{
 	"Jetro":           regexp.MustCompile(`(?i)JETRO`),
 	"Chef's Choice":   regexp.MustCompile(`(?i)CHEF.?S?\s*CHOICE`),
@@ -740,21 +737,17 @@ var vendorPatterns = map[string]*regexp.Regexp{
 	"Wegmans":         regexp.MustCompile(`(?i)WEGMANS`),
 }
 
-// extractVendorHint tries to identify the vendor from the description
 func extractVendorHint(description string) string {
-	// Check known vendor patterns
 	for vendor, pattern := range vendorPatterns {
 		if pattern.MatchString(description) {
 			return vendor
 		}
 	}
 
-	// Try to extract business name from "BUSINESS NAME CITY * STATE" pattern
-	// This is common in debit card transactions
+	// Try BUSINESS NAME CITY * STATE pattern
 	cityStatePattern := regexp.MustCompile(`([A-Z][A-Z0-9\s&']+?)\s+(?:[A-Z]+\s+)?\*\s*[A-Z]{2}`)
 	if match := cityStatePattern.FindStringSubmatch(description); len(match) > 1 {
 		vendor := strings.TrimSpace(match[1])
-		// Clean up common prefixes
 		vendor = regexp.MustCompile(`^(DBCRD|DEBIT|POS|AP|AUT|VISA|DDA|PUR)\s+`).ReplaceAllString(vendor, "")
 		if len(vendor) > 3 {
 			return vendor
@@ -764,12 +757,10 @@ func extractVendorHint(description string) string {
 	return ""
 }
 
-// categorizeTransaction determines the category based on type and description
 func categorizeTransaction(txnType, description string, amount float64) string {
 	descUpper := strings.ToUpper(description)
 
 	if amount > 0 {
-		// Credits/Deposits
 		if strings.Contains(descUpper, "BANKCARD") || strings.Contains(descUpper, "MTOT DEP") {
 			return "income_cards"
 		}
@@ -791,7 +782,6 @@ func categorizeTransaction(txnType, description string, amount float64) string {
 		return "income_other"
 	}
 
-	// Debits/Withdrawals
 	if txnType == "check" {
 		return "expense_check"
 	}
