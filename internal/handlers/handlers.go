@@ -1025,6 +1025,61 @@ func (h *Handler) ReconciliationsUpload(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// ReconciliationsDetail shows a read-only view of a completed reconciliation
+func (h *Handler) ReconciliationsDetail(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	recon, err := h.db.GetReconciliation(id)
+	if err != nil {
+		l.Error("reconciliation_detail_get_error", "id", id, "error", err.Error())
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	transactions, err := h.db.GetBankTransactions(id)
+	if err != nil {
+		l.Error("reconciliation_detail_transactions_error", "id", id, "error", err.Error())
+	}
+
+	stats, err := h.db.GetReconciliationStats(id)
+	if err != nil {
+		l.Error("reconciliation_detail_stats_error", "id", id, "error", err.Error())
+	}
+
+	h.render(w, r, "reconciliation_detail.html", map[string]any{
+		"Title":          "Bank Statement Details",
+		"Active":         "expenses",
+		"Reconciliation": recon,
+		"Transactions":   transactions,
+		"Stats":          stats,
+	})
+}
+
+// ReconciliationsComplete marks a reconciliation as completed
+func (h *Handler) ReconciliationsComplete(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	if err := h.db.UpdateReconciliationStatus(id, "completed"); err != nil {
+		l.Error("reconciliation_complete_error", "id", id, "error", err.Error())
+	} else {
+		l.Info("reconciliation_completed", "id", id)
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", id), http.StatusFound)
+}
+
 // ReconciliationsReparse queues a new parse job for an existing reconciliation
 func (h *Handler) ReconciliationsReparse(w http.ResponseWriter, r *http.Request) {
 	l := logger.FromContext(r.Context())
@@ -1161,6 +1216,23 @@ func (h *Handler) ReconciliationsUnmatch(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Get the transaction to check if it was a "created" expense
+	txn, err := h.db.GetBankTransaction(txnID)
+	if err != nil {
+		l.Error("unmatch_get_txn_error", "txn_id", txnID, "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		return
+	}
+
+	// If this was a created expense, delete it
+	if txn.MatchStatus == "created" && txn.MatchedExpenseID != nil {
+		if err := h.db.DeleteExpense(*txn.MatchedExpenseID); err != nil {
+			l.Error("unmatch_delete_expense_error", "expense_id", *txn.MatchedExpenseID, "error", err.Error())
+		} else {
+			l.Info("created_expense_deleted", "txn_id", txnID, "expense_id", *txn.MatchedExpenseID)
+		}
+	}
+
 	if err := h.db.UnmatchBankTransaction(txnID); err != nil {
 		l.Error("unmatch_error", "txn_id", txnID, "error", err.Error())
 	} else {
@@ -1275,6 +1347,39 @@ func (h *Handler) ReconciliationsCreateExpense(w http.ResponseWriter, r *http.Re
 		l.Error("mark_txn_created_error", "txn_id", txnID, "expense_id", expenseID, "error", err.Error())
 	} else {
 		l.Info("expense_created_from_txn", "txn_id", txnID, "expense_id", expenseID)
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+}
+
+// ReconciliationsUpdateType updates the transaction type for a bank transaction
+func (h *Handler) ReconciliationsUpdateType(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	reconID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
+	if err != nil {
+		l.Error("update_type_invalid_txn_id", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)
+		return
+	}
+
+	txnType := r.FormValue("transaction_type")
+
+	// Determine if amount should be positive or negative based on type
+	// Credits (positive): deposit, ach, refund
+	// Debits (negative): check, debit, transfer, fee, other
+	shouldBePositive := txnType == "deposit" || txnType == "ach" || txnType == "refund"
+
+	if err := h.db.UpdateBankTransactionTypeAndSign(txnID, txnType, shouldBePositive); err != nil {
+		l.Error("update_type_error", "txn_id", txnID, "error", err.Error())
+	} else {
+		l.Info("transaction_type_updated", "txn_id", txnID, "type", txnType)
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d/review", reconID), http.StatusFound)

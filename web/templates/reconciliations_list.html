@@ -18,7 +18,7 @@
 	<tbody>
 		{{range .Reconciliations}}
 		<tr>
-			<td>{{.StatementDateDisplay}}</td>
+			<td><a href="/bank-statements/{{.ID}}">{{.StatementDateDisplay}}</a></td>
 			<td class="money">${{printf "%.2f" .StartingBalance}}</td>
 			<td class="money">${{printf "%.2f" .EndingBalance}}</td>
 			<td>

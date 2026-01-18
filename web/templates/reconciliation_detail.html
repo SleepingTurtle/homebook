@@ -1,0 +1,159 @@
+{{template "header" .}}
+<div class="page-header">
+	<h1>Bank Statement: {{.Reconciliation.StatementDateDisplay}}</h1>
+	<div style="display: flex; gap: 0.5rem;">
+		{{if ne .Reconciliation.Status "completed"}}
+		<a href="/bank-statements/{{.Reconciliation.ID}}/review" class="btn btn-primary">Review & Match</a>
+		{{end}}
+		<a href="/bank-statements" class="btn btn-secondary">Back to Bank Statements</a>
+	</div>
+</div>
+
+<div class="card" style="margin-bottom: 1.5rem;">
+	<h3 style="margin-top: 0; margin-bottom: 1rem;">Statement Summary</h3>
+	<div style="display: flex; flex-wrap: wrap; gap: 2rem;">
+		<div>
+			<div style="color: #6b7280; font-size: 0.875rem;">Account</div>
+			<div style="font-size: 1.25rem; font-weight: 600;">****{{.Reconciliation.AccountLastFour}}</div>
+		</div>
+		<div>
+			<div style="color: #6b7280; font-size: 0.875rem;">Statement Date</div>
+			<div style="font-size: 1.25rem; font-weight: 600;">{{.Reconciliation.StatementDateDisplay}}</div>
+		</div>
+		<div>
+			<div style="color: #6b7280; font-size: 0.875rem;">Starting Balance</div>
+			<div style="font-size: 1.25rem; font-weight: 600;">${{printf "%.2f" .Reconciliation.StartingBalance}}</div>
+		</div>
+		<div>
+			<div style="color: #6b7280; font-size: 0.875rem;">Ending Balance</div>
+			<div style="font-size: 1.25rem; font-weight: 600;">${{printf "%.2f" .Reconciliation.EndingBalance}}</div>
+		</div>
+		<div>
+			<div style="color: #6b7280; font-size: 0.875rem;">Status</div>
+			<div style="font-size: 1.25rem;">
+				{{if eq .Reconciliation.Status "completed"}}
+					<span class="status status-paid">Completed</span>
+				{{else if eq .Reconciliation.Status "parsed"}}
+					<span class="status status-unpaid">Ready to Review</span>
+				{{else}}
+					<span class="status">{{.Reconciliation.Status}}</span>
+				{{end}}
+			</div>
+		</div>
+	</div>
+</div>
+
+{{if .Stats}}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+	<div class="card">
+		<h3 style="margin-top: 0; margin-bottom: 1rem;">Matching Summary</h3>
+		<div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+			<div style="text-align: center; padding: 0.5rem 1rem; background: #f3f4f6; border-radius: 8px; flex: 1;">
+				<div style="font-size: 1.5rem; font-weight: 700;">{{.Stats.TotalTransactions}}</div>
+				<div style="color: #6b7280; font-size: 0.75rem;">Total</div>
+			</div>
+			<div style="text-align: center; padding: 0.5rem 1rem; background: #dcfce7; border-radius: 8px; flex: 1;">
+				<div style="font-size: 1.5rem; font-weight: 700; color: #16a34a;">{{.Stats.MatchedCount}}</div>
+				<div style="color: #6b7280; font-size: 0.75rem;">Matched</div>
+			</div>
+			<div style="text-align: center; padding: 0.5rem 1rem; background: #dbeafe; border-radius: 8px; flex: 1;">
+				<div style="font-size: 1.5rem; font-weight: 700; color: #2563eb;">{{.Stats.CreatedCount}}</div>
+				<div style="color: #6b7280; font-size: 0.75rem;">Created</div>
+			</div>
+			<div style="text-align: center; padding: 0.5rem 1rem; background: #e5e7eb; border-radius: 8px; flex: 1;">
+				<div style="font-size: 1.5rem; font-weight: 700; color: #6b7280;">{{.Stats.IgnoredCount}}</div>
+				<div style="color: #6b7280; font-size: 0.75rem;">Ignored</div>
+			</div>
+			<div style="text-align: center; padding: 0.5rem 1rem; background: #fef3c7; border-radius: 8px; flex: 1;">
+				<div style="font-size: 1.5rem; font-weight: 700; color: #d97706;">{{.Stats.UnmatchedCount}}</div>
+				<div style="color: #6b7280; font-size: 0.75rem;">Unmatched</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card">
+		<h3 style="margin-top: 0; margin-bottom: 1rem;">Cash Flow</h3>
+		<div style="display: flex; flex-direction: column; gap: 0.75rem;">
+			<div style="display: flex; justify-content: space-between; align-items: center;">
+				<span style="color: #6b7280;">Total Credits (Deposits)</span>
+				<span style="font-size: 1.25rem; font-weight: 600; color: #16a34a;">+${{printf "%.2f" .Stats.TotalCredits}}</span>
+			</div>
+			<div style="display: flex; justify-content: space-between; align-items: center;">
+				<span style="color: #6b7280;">Total Debits (Withdrawals)</span>
+				<span style="font-size: 1.25rem; font-weight: 600; color: #dc2626;">-${{printf "%.2f" .Stats.TotalDebits}}</span>
+			</div>
+			<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 0.25rem 0;">
+			<div style="display: flex; justify-content: space-between; align-items: center;">
+				<span style="color: #6b7280;">Net Change</span>
+				{{$netChange := printf "%.2f" (index (printf "%.2f" .Stats.TotalCredits) 0)}}
+				<span style="font-size: 1.25rem; font-weight: 600;">${{printf "%.2f" .Stats.TotalCredits}} - ${{printf "%.2f" .Stats.TotalDebits}}</span>
+			</div>
+		</div>
+	</div>
+</div>
+{{end}}
+
+<h2>All Transactions</h2>
+{{if .Transactions}}
+<table>
+	<thead>
+		<tr>
+			<th>Date</th>
+			<th>Description</th>
+			<th>Type</th>
+			<th class="money">Amount</th>
+			<th>Status</th>
+			<th>Matched To</th>
+		</tr>
+	</thead>
+	<tbody>
+		{{range .Transactions}}
+		<tr>
+			<td>{{.PostingDate}}</td>
+			<td>
+				{{.Description}}
+				{{if .CheckNumber}}<br><small style="color: #6b7280;">Check #{{.CheckNumber}}</small>{{end}}
+				{{if .VendorHint}}<br><small style="color: #6b7280;">Vendor: {{.VendorHint}}</small>{{end}}
+			</td>
+			<td>
+				<span style="font-size: 0.75rem; padding: 2px 6px; background: #e5e7eb; border-radius: 4px;">{{.TransactionType}}</span>
+			</td>
+			<td class="money">
+				{{if lt .Amount 0.0}}
+					<span style="color: #dc2626;">${{printf "%.2f" .Amount}}</span>
+				{{else}}
+					<span style="color: #16a34a;">+${{printf "%.2f" .Amount}}</span>
+				{{end}}
+			</td>
+			<td>
+				{{if eq .MatchStatus "matched"}}
+					<span class="status status-paid">Matched</span>
+				{{else if eq .MatchStatus "ignored"}}
+					<span class="status" style="background: #e5e7eb; color: #6b7280;">Ignored</span>
+				{{else if eq .MatchStatus "created"}}
+					<span class="status" style="background: #dbeafe; color: #2563eb;">Created</span>
+				{{else}}
+					<span class="status status-unpaid">Unmatched</span>
+				{{end}}
+			</td>
+			<td>
+				{{if .MatchedExpenseID}}
+					<small>{{.MatchedExpenseVendor}}<br>{{.MatchedExpenseDate}}</small>
+					{{if .MatchConfidence}}
+						<br><span style="font-size: 0.625rem; color: #9ca3af;">{{.MatchConfidence}}</span>
+					{{end}}
+				{{else if eq .MatchStatus "ignored"}}
+					<small style="color: #6b7280;">{{.Notes}}</small>
+				{{else}}
+					<span style="color: #9ca3af;">-</span>
+				{{end}}
+			</td>
+		</tr>
+		{{end}}
+	</tbody>
+</table>
+{{else}}
+<p class="empty-state">No transactions found for this statement.</p>
+{{end}}
+
+{{template "footer" .}}

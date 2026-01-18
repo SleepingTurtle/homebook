@@ -189,6 +189,33 @@ func (db *DB) UnmatchBankTransaction(txnID int64) error {
 	return nil
 }
 
+// UpdateBankTransactionType updates the transaction type
+func (db *DB) UpdateBankTransactionType(txnID int64, txnType string) error {
+	_, err := db.Exec(`UPDATE bank_transactions SET transaction_type = ? WHERE id = ?`, txnType, txnID)
+	if err != nil {
+		return fmt.Errorf("update bank transaction type: %w", err)
+	}
+	return nil
+}
+
+// UpdateBankTransactionTypeAndSign updates the transaction type and adjusts amount sign
+func (db *DB) UpdateBankTransactionTypeAndSign(txnID int64, txnType string, shouldBePositive bool) error {
+	// Update type and flip amount sign if needed
+	var query string
+	if shouldBePositive {
+		// Make amount positive (use ABS)
+		query = `UPDATE bank_transactions SET transaction_type = ?, amount = ABS(amount) WHERE id = ?`
+	} else {
+		// Make amount negative (use -ABS)
+		query = `UPDATE bank_transactions SET transaction_type = ?, amount = -ABS(amount) WHERE id = ?`
+	}
+	_, err := db.Exec(query, txnType, txnID)
+	if err != nil {
+		return fmt.Errorf("update bank transaction type and sign: %w", err)
+	}
+	return nil
+}
+
 // DeleteBankTransactions deletes all transactions for a reconciliation
 func (db *DB) DeleteBankTransactions(reconciliationID int64) error {
 	_, err := db.Exec(`DELETE FROM bank_transactions WHERE reconciliation_id = ?`, reconciliationID)

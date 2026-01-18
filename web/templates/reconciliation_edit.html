@@ -2,10 +2,16 @@
 <div class="page-header">
 	<h1>Review Reconciliation: {{.Reconciliation.StatementDateDisplay}}</h1>
 	<div style="display: flex; gap: 0.5rem;">
+		{{if and .Stats (eq .Stats.UnmatchedCount 0)}}
+		<form action="/bank-statements/{{.Reconciliation.ID}}/complete" method="POST" style="margin: 0;">
+			<button type="submit" class="btn btn-success">Mark as Completed</button>
+		</form>
+		{{end}}
 		<form action="/bank-statements/{{.Reconciliation.ID}}/reparse" method="POST" style="margin: 0;">
 			<button type="submit" class="btn btn-secondary" onclick="return confirm('Re-parse the statement? This will delete existing transactions and re-import them.')">Reparse Statement</button>
 		</form>
-		<a href="/bank-statements" class="btn btn-secondary">Back to Bank Statements</a>
+		<a href="/bank-statements/{{.Reconciliation.ID}}" class="btn btn-secondary">View Details</a>
+		<a href="/bank-statements" class="btn btn-secondary">Back</a>
 	</div>
 </div>
 
@@ -70,9 +76,18 @@
 </div>
 {{end}}
 
-<h2>Transactions</h2>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+	<h2 style="margin: 0;">Transactions</h2>
+	<div style="display: flex; gap: 0.25rem;">
+		<button type="button" class="btn btn-small filter-btn active" data-filter="all">All</button>
+		<button type="button" class="btn btn-small filter-btn" data-filter="unmatched">Unmatched</button>
+		<button type="button" class="btn btn-small filter-btn" data-filter="matched">Matched</button>
+		<button type="button" class="btn btn-small filter-btn" data-filter="created">Created</button>
+		<button type="button" class="btn btn-small filter-btn" data-filter="ignored">Ignored</button>
+	</div>
+</div>
 {{if .Transactions}}
-<table>
+<table id="transactions-table">
 	<thead>
 		<tr>
 			<th>Date</th>
@@ -89,7 +104,7 @@
 		{{$expenses := .Expenses}}
 		{{$vendors := .Vendors}}
 		{{range .Transactions}}
-		<tr>
+		<tr data-status="{{.MatchStatus}}">
 			<td>{{.PostingDate}}</td>
 			<td>
 				{{.Description}}
@@ -97,7 +112,19 @@
 				{{if .VendorHint}}<br><small style="color: #6b7280;">Vendor: {{.VendorHint}}</small>{{end}}
 			</td>
 			<td>
-				<span style="font-size: 0.75rem; padding: 2px 6px; background: #e5e7eb; border-radius: 4px;">{{.TransactionType}}</span>
+				<form action="/bank-statements/{{$reconID}}/update-type" method="POST" style="margin: 0;">
+					<input type="hidden" name="transaction_id" value="{{.ID}}">
+					<select name="transaction_type" onchange="this.form.submit()" style="font-size: 0.75rem; padding: 2px 4px; border: 1px solid #d1d5db; border-radius: 4px; background: #f9fafb;">
+						<option value="deposit" {{if eq .TransactionType "deposit"}}selected{{end}}>deposit</option>
+						<option value="ach" {{if eq .TransactionType "ach"}}selected{{end}}>ach</option>
+						<option value="refund" {{if eq .TransactionType "refund"}}selected{{end}}>refund</option>
+						<option value="check" {{if eq .TransactionType "check"}}selected{{end}}>check</option>
+						<option value="debit" {{if eq .TransactionType "debit"}}selected{{end}}>debit</option>
+						<option value="transfer" {{if eq .TransactionType "transfer"}}selected{{end}}>transfer</option>
+						<option value="fee" {{if eq .TransactionType "fee"}}selected{{end}}>fee</option>
+						<option value="other" {{if eq .TransactionType "other"}}selected{{end}}>other</option>
+					</select>
+				</form>
 			</td>
 			<td class="money">
 				{{if lt .Amount 0.0}}
@@ -225,6 +252,18 @@
 .modal-content h3 {
 	margin-top: 0;
 }
+.filter-btn {
+	background: #e5e7eb;
+	color: #374151;
+	border: none;
+}
+.filter-btn:hover {
+	background: #d1d5db;
+}
+.filter-btn.active {
+	background: #3b82f6;
+	color: white;
+}
 </style>
 
 <script>
@@ -254,6 +293,28 @@ document.getElementById('match-modal').addEventListener('click', function(e) {
 });
 document.getElementById('create-modal').addEventListener('click', function(e) {
 	if (e.target === this) closeCreateModal();
+});
+
+// Transaction filtering
+document.querySelectorAll('.filter-btn').forEach(function(btn) {
+	btn.addEventListener('click', function() {
+		var filter = this.dataset.filter;
+
+		// Update active button
+		document.querySelectorAll('.filter-btn').forEach(function(b) {
+			b.classList.remove('active');
+		});
+		this.classList.add('active');
+
+		// Filter rows
+		document.querySelectorAll('#transactions-table tbody tr').forEach(function(row) {
+			if (filter === 'all' || row.dataset.status === filter) {
+				row.style.display = '';
+			} else {
+				row.style.display = 'none';
+			}
+		});
+	});
 });
 </script>
 {{else}}
