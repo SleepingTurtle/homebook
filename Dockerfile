@@ -1,6 +1,11 @@
 # Build stage
 FROM golang:1.22-alpine AS builder
 
+# Version build arguments
+ARG VERSION=dev
+ARG BUILD_TIME=unknown
+ARG GIT_COMMIT=unknown
+
 RUN apk add --no-cache gcc musl-dev
 
 WORKDIR /app
@@ -10,7 +15,12 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=1 GOOS=linux go build -o homebooks ./cmd/server
+RUN CGO_ENABLED=1 GOOS=linux go build \
+    -ldflags "-X homebooks/internal/version.Version=${VERSION} \
+              -X homebooks/internal/version.BuildTime=${BUILD_TIME} \
+              -X homebooks/internal/version.GitCommit=${GIT_COMMIT} \
+              -s -w" \
+    -o homebooks ./cmd/server
 
 # Runtime stage
 FROM alpine:latest

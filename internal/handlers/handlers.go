@@ -16,6 +16,7 @@ import (
 	"homebooks/internal/filestore"
 	"homebooks/internal/logger"
 	"homebooks/internal/models"
+	"homebooks/internal/version"
 )
 
 type Handler struct {
@@ -35,6 +36,7 @@ func New(db *database.DB, a *auth.Auth, tmpl *template.Template, files *filestor
 }
 
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, data map[string]interface{}) {
+	data["Version"] = version.Version
 	err := h.tmpl.ExecuteTemplate(w, name, data)
 	if err != nil {
 		l := logger.FromContext(r.Context())
@@ -1600,5 +1602,15 @@ func (h *Handler) JobStatus(w http.ResponseWriter, r *http.Request) {
 		"status":   job.Status,
 		"progress": job.Progress,
 		"result":   job.Result,
+	})
+}
+
+// APIVersion returns the current application version
+func (h *Handler) APIVersion(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"version":    version.Version,
+		"build_time": version.BuildTime,
+		"commit":     version.GitCommit,
 	})
 }
