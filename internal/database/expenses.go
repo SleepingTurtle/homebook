@@ -74,6 +74,36 @@ func (db *DB) ListUnpaidExpenses() ([]models.Expense, float64, error) {
 	return db.ListExpenses(models.ExpenseFilter{Status: "not_paid"})
 }
 
+// ListExpensesDateRange returns expenses within a date range with dates in YYYY-MM-DD format
+// Used by auto-matching to find potential matches
+func (db *DB) ListExpensesDateRange(startDate, endDate string) ([]models.Expense, error) {
+	rows, err := db.Query(`
+		SELECT e.id, date(e.date), e.vendor_id, v.name, e.amount, e.invoice_number, e.status,
+			   e.payment_type, e.check_number, COALESCE(date(e.date_opened), ''),
+			   COALESCE(date(e.due_date), ''), COALESCE(date(e.date_paid), ''),
+			   e.notes
+		FROM expenses e
+		JOIN vendors v ON e.vendor_id = v.id
+		WHERE e.date >= ? AND e.date <= ?
+		ORDER BY e.date DESC
+	`, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("query expenses date range: %w", err)
+	}
+	defer rows.Close()
+
+	var expenses []models.Expense
+	for rows.Next() {
+		var e models.Expense
+		if err := rows.Scan(&e.ID, &e.Date, &e.VendorID, &e.VendorName, &e.Amount, &e.InvoiceNumber, &e.Status,
+			&e.PaymentType, &e.CheckNumber, &e.DateOpened, &e.DueDate, &e.DatePaid, &e.Notes); err != nil {
+			return nil, fmt.Errorf("scan expense: %w", err)
+		}
+		expenses = append(expenses, e)
+	}
+	return expenses, rows.Err()
+}
+
 func (db *DB) GetExpense(id int64) (models.Expense, error) {
 	var e models.Expense
 	err := db.QueryRow(`

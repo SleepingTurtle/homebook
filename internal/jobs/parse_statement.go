@@ -8,6 +8,7 @@ import (
 	"homebooks/internal/database"
 	"homebooks/internal/models"
 	"homebooks/internal/parser"
+	"homebooks/internal/reconciliation"
 )
 
 // ParseStatementPayload is the JSON payload for parse_statement jobs
@@ -95,8 +96,8 @@ func ParseStatementHandler(fileStorePath string) JobHandler {
 
 		db.UpdateJobProgress(job.ID, 95)
 
-		// TODO: Run auto-matching (Phase 5)
-		// matched := reconciliation.AutoMatch(db, payload.ReconciliationID)
+		// Run auto-matching
+		matched, _ := reconciliation.AutoMatch(db, payload.ReconciliationID)
 
 		// Mark as parsed (not completed - user still needs to review)
 		if err := db.UpdateReconciliationStatus(payload.ReconciliationID, "parsed"); err != nil {
@@ -108,6 +109,7 @@ func ParseStatementHandler(fileStorePath string) JobHandler {
 		// Set result with summary
 		resultJSON, _ := json.Marshal(map[string]any{
 			"transactions_count":  totalTxns,
+			"matched_count":       matched,
 			"beginning_balance":   result.BeginningBalance,
 			"ending_balance":      result.EndingBalance,
 			"account_last_four":   result.AccountLastFour,

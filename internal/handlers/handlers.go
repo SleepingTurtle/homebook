@@ -1025,6 +1025,42 @@ func (h *Handler) ReconciliationsUpload(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// ReconciliationsEdit shows the reconciliation review/edit page
+func (h *Handler) ReconciliationsEdit(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/reconciliations", http.StatusFound)
+		return
+	}
+
+	recon, err := h.db.GetReconciliation(id)
+	if err != nil {
+		l.Error("reconciliation_get_error", "id", id, "error", err.Error())
+		http.Redirect(w, r, "/reconciliations", http.StatusFound)
+		return
+	}
+
+	transactions, err := h.db.GetBankTransactions(id)
+	if err != nil {
+		l.Error("reconciliation_transactions_error", "id", id, "error", err.Error())
+	}
+
+	stats, err := h.db.GetReconciliationStats(id)
+	if err != nil {
+		l.Error("reconciliation_stats_error", "id", id, "error", err.Error())
+	}
+
+	h.render(w, r, "reconciliation_edit.html", map[string]any{
+		"Title":          "Review Reconciliation",
+		"Active":         "expenses",
+		"Reconciliation": recon,
+		"Transactions":   transactions,
+		"Stats":          stats,
+	})
+}
+
 // JobStatus returns the status of a background job as JSON (for polling)
 func (h *Handler) JobStatus(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
