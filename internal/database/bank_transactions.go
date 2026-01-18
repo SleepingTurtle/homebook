@@ -199,15 +199,18 @@ func (db *DB) UpdateBankTransactionType(txnID int64, txnType string) error {
 }
 
 // UpdateBankTransactionTypeAndSign updates the transaction type and adjusts amount sign
+// Also marks deposits as matched since they correspond to sales, not expenses
 func (db *DB) UpdateBankTransactionTypeAndSign(txnID int64, txnType string, shouldBePositive bool) error {
-	// Update type and flip amount sign if needed
 	var query string
-	if shouldBePositive {
-		// Make amount positive (use ABS)
-		query = `UPDATE bank_transactions SET transaction_type = ?, amount = ABS(amount) WHERE id = ?`
+	if txnType == "deposit" {
+		// Deposits are positive and auto-matched (they match to sales, not expenses)
+		query = `UPDATE bank_transactions SET transaction_type = ?, amount = ABS(amount), match_status = 'matched', match_confidence = 'deposit', matched_at = CURRENT_TIMESTAMP WHERE id = ?`
+	} else if shouldBePositive {
+		// Other credits (ach, refund) - make positive, reset match status
+		query = `UPDATE bank_transactions SET transaction_type = ?, amount = ABS(amount), match_status = 'unmatched', matched_expense_id = NULL, match_confidence = '', matched_at = NULL WHERE id = ?`
 	} else {
-		// Make amount negative (use -ABS)
-		query = `UPDATE bank_transactions SET transaction_type = ?, amount = -ABS(amount) WHERE id = ?`
+		// Debits - make negative, reset match status
+		query = `UPDATE bank_transactions SET transaction_type = ?, amount = -ABS(amount), match_status = 'unmatched', matched_expense_id = NULL, match_confidence = '', matched_at = NULL WHERE id = ?`
 	}
 	_, err := db.Exec(query, txnType, txnID)
 	if err != nil {
@@ -227,13 +230,17 @@ func (db *DB) DeleteBankTransactions(reconciliationID int64) error {
 
 // GetReconciliationStats returns summary statistics for a reconciliation
 type ReconciliationStats struct {
-	TotalTransactions int
-	TotalCredits      float64
-	TotalDebits       float64
-	MatchedCount      int
-	UnmatchedCount    int
-	IgnoredCount      int
-	CreatedCount      int
+	TotalTransactions    int
+	TotalCredits         float64
+	TotalDebits          float64
+	MatchedCount         int
+	UnmatchedCount       int
+	IgnoredCount         int
+	CreatedCount         int
+	ElectronicDeposits   float64
+	ElectronicPayments   float64
+	ChecksPaid           float64
+	ServiceFees          float64
 }
 
 func (db *DB) GetReconciliationStats(reconciliationID int64) (*ReconciliationStats, error) {
@@ -246,11 +253,16 @@ func (db *DB) GetReconciliationStats(reconciliationID int64) (*ReconciliationSta
 			COALESCE(SUM(CASE WHEN match_status = 'matched' THEN 1 ELSE 0 END), 0),
 			COALESCE(SUM(CASE WHEN match_status = 'unmatched' THEN 1 ELSE 0 END), 0),
 			COALESCE(SUM(CASE WHEN match_status = 'ignored' THEN 1 ELSE 0 END), 0),
-			COALESCE(SUM(CASE WHEN match_status = 'created' THEN 1 ELSE 0 END), 0)
+			COALESCE(SUM(CASE WHEN match_status = 'created' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN transaction_type = 'deposit' AND amount > 0 THEN amount ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN transaction_type IN ('ach', 'debit') AND amount < 0 THEN ABS(amount) ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN transaction_type = 'check' AND amount < 0 THEN ABS(amount) ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN transaction_type = 'fee' THEN ABS(amount) ELSE 0 END), 0)
 		FROM bank_transactions
 		WHERE reconciliation_id = ?
 	`, reconciliationID).Scan(&stats.TotalTransactions, &stats.TotalCredits, &stats.TotalDebits,
-		&stats.MatchedCount, &stats.UnmatchedCount, &stats.IgnoredCount, &stats.CreatedCount)
+		&stats.MatchedCount, &stats.UnmatchedCount, &stats.IgnoredCount, &stats.CreatedCount,
+		&stats.ElectronicDeposits, &stats.ElectronicPayments, &stats.ChecksPaid, &stats.ServiceFees)
 	if err != nil {
 		return nil, fmt.Errorf("query reconciliation stats: %w", err)
 	}

@@ -99,6 +99,11 @@ CREATE TABLE IF NOT EXISTS bank_reconciliations (
     parsed_at DATETIME,
     reconciled_at DATETIME,
     notes TEXT DEFAULT '',
+    -- Statement summary totals (from PDF)
+    electronic_deposits REAL DEFAULT 0,
+    electronic_payments REAL DEFAULT 0,
+    checks_paid REAL DEFAULT 0,
+    service_fees REAL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

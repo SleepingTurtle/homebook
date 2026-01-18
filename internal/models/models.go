@@ -290,6 +290,11 @@ type BankReconciliation struct {
 	Notes                string
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
+	// Statement summary totals (from PDF)
+	ElectronicDeposits float64
+	ElectronicPayments float64
+	ChecksPaid         float64
+	ServiceFees        float64
 }
 
 // BankTransaction represents a single transaction from a bank statement

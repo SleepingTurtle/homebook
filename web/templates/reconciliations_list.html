@@ -9,8 +9,12 @@
 	<thead>
 		<tr>
 			<th>Statement Date</th>
-			<th class="money">Starting Balance</th>
-			<th class="money">Ending Balance</th>
+			<th class="money">Starting</th>
+			<th class="money">Ending</th>
+			<th class="money">Deposits</th>
+			<th class="money">Payments</th>
+			<th class="money">Checks</th>
+			<th class="money">Fees</th>
 			<th>Status</th>
 			<th class="actions"></th>
 		</tr>
@@ -21,6 +25,10 @@
 			<td><a href="/bank-statements/{{.ID}}">{{.StatementDateDisplay}}</a></td>
 			<td class="money">${{printf "%.2f" .StartingBalance}}</td>
 			<td class="money">${{printf "%.2f" .EndingBalance}}</td>
+			<td class="money" style="color: #16a34a;">{{if gt .ElectronicDeposits 0.0}}${{printf "%.2f" .ElectronicDeposits}}{{else}}-{{end}}</td>
+			<td class="money" style="color: #dc2626;">{{if gt .ElectronicPayments 0.0}}${{printf "%.2f" .ElectronicPayments}}{{else}}-{{end}}</td>
+			<td class="money" style="color: #dc2626;">{{if gt .ChecksPaid 0.0}}${{printf "%.2f" .ChecksPaid}}{{else}}-{{end}}</td>
+			<td class="money" style="color: #dc2626;">{{if gt .ServiceFees 0.0}}${{printf "%.2f" .ServiceFees}}{{else}}-{{end}}</td>
 			<td>
 				{{if eq .Status "completed"}}
 					<span class="status status-paid">Completed</span>

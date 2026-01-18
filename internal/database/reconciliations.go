@@ -13,7 +13,8 @@ func (db *DB) ListReconciliations() ([]models.BankReconciliation, error) {
 		SELECT id, date(statement_date), strftime('%m-%d-%Y', statement_date),
 			   starting_balance, ending_balance, status, file_path,
 			   account_last_four, parse_job_id, parsed_at, reconciled_at,
-			   notes, created_at, updated_at
+			   notes, electronic_deposits, electronic_payments, checks_paid, service_fees,
+			   created_at, updated_at
 		FROM bank_reconciliations
 		ORDER BY statement_date DESC
 	`)
@@ -30,7 +31,8 @@ func (db *DB) ListReconciliations() ([]models.BankReconciliation, error) {
 		if err := rows.Scan(&r.ID, &r.StatementDate, &r.StatementDateDisplay,
 			&r.StartingBalance, &r.EndingBalance, &r.Status, &r.FilePath,
 			&r.AccountLastFour, &parseJobID, &parsedAt, &reconciledAt,
-			&r.Notes, &r.CreatedAt, &r.UpdatedAt); err != nil {
+			&r.Notes, &r.ElectronicDeposits, &r.ElectronicPayments, &r.ChecksPaid, &r.ServiceFees,
+			&r.CreatedAt, &r.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan reconciliation: %w", err)
 		}
 		if parseJobID.Valid {
@@ -56,13 +58,15 @@ func (db *DB) GetReconciliation(id int64) (models.BankReconciliation, error) {
 		SELECT id, date(statement_date), strftime('%m-%d-%Y', statement_date),
 			   starting_balance, ending_balance, status, file_path,
 			   account_last_four, parse_job_id, parsed_at, reconciled_at,
-			   notes, created_at, updated_at
+			   notes, electronic_deposits, electronic_payments, checks_paid, service_fees,
+			   created_at, updated_at
 		FROM bank_reconciliations
 		WHERE id = ?
 	`, id).Scan(&r.ID, &r.StatementDate, &r.StatementDateDisplay,
 		&r.StartingBalance, &r.EndingBalance, &r.Status, &r.FilePath,
 		&r.AccountLastFour, &parseJobID, &parsedAt, &reconciledAt,
-		&r.Notes, &r.CreatedAt, &r.UpdatedAt)
+		&r.Notes, &r.ElectronicDeposits, &r.ElectronicPayments, &r.ChecksPaid, &r.ServiceFees,
+		&r.CreatedAt, &r.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return r, fmt.Errorf("reconciliation not found")
 	}
@@ -135,13 +139,16 @@ func (db *DB) UpdateReconciliationParseJob(id int64, jobID int64) error {
 }
 
 // UpdateReconciliationParsed updates a reconciliation after parsing completes
-func (db *DB) UpdateReconciliationParsed(id int64, startingBalance, endingBalance float64, accountLastFour string) error {
+func (db *DB) UpdateReconciliationParsed(id int64, startingBalance, endingBalance float64, accountLastFour string,
+	electronicDeposits, electronicPayments, checksPaid, serviceFees float64) error {
 	_, err := db.Exec(`
 		UPDATE bank_reconciliations
 		SET starting_balance = ?, ending_balance = ?, account_last_four = ?,
+		    electronic_deposits = ?, electronic_payments = ?, checks_paid = ?, service_fees = ?,
 		    status = 'parsed', parsed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
-	`, startingBalance, endingBalance, accountLastFour, id)
+	`, startingBalance, endingBalance, accountLastFour,
+		electronicDeposits, electronicPayments, checksPaid, serviceFees, id)
 	if err != nil {
 		return fmt.Errorf("update reconciliation parsed: %w", err)
 	}

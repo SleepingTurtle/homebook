@@ -44,12 +44,16 @@ func ParseStatementHandler(fileStorePath string) JobHandler {
 		}
 		db.UpdateJobProgress(job.ID, 40)
 
-		// Update reconciliation with parsed header info
+		// Update reconciliation with parsed header info and summary values
 		if err := db.UpdateReconciliationParsed(
 			payload.ReconciliationID,
 			result.BeginningBalance,
 			result.EndingBalance,
 			result.AccountLastFour,
+			result.ElectronicDeposits,
+			result.ElectronicPayments,
+			result.ChecksPaid,
+			result.ServiceFees,
 		); err != nil {
 			return fmt.Errorf("update reconciliation parsed: %w", err)
 		}

@@ -45,33 +45,53 @@
 </div>
 
 {{if .Stats}}
-<div class="card" style="margin-bottom: 1.5rem;">
-	<h3 style="margin-top: 0; margin-bottom: 1rem;">Matching Summary</h3>
-	<div style="display: flex; flex-wrap: wrap; gap: 1.5rem;">
-		<div style="text-align: center; padding: 0.75rem 1.5rem; background: #f3f4f6; border-radius: 8px;">
-			<div style="font-size: 1.5rem; font-weight: 700;">{{.Stats.TotalTransactions}}</div>
-			<div style="color: #6b7280; font-size: 0.875rem;">Total Transactions</div>
-		</div>
-		<div style="text-align: center; padding: 0.75rem 1.5rem; background: #dcfce7; border-radius: 8px;">
-			<div style="font-size: 1.5rem; font-weight: 700; color: #16a34a;">{{.Stats.MatchedCount}}</div>
-			<div style="color: #6b7280; font-size: 0.875rem;">Matched</div>
-		</div>
-		<div style="text-align: center; padding: 0.75rem 1.5rem; background: #fef3c7; border-radius: 8px;">
-			<div style="font-size: 1.5rem; font-weight: 700; color: #d97706;">{{.Stats.UnmatchedCount}}</div>
-			<div style="color: #6b7280; font-size: 0.875rem;">Unmatched</div>
-		</div>
-		<div style="text-align: center; padding: 0.75rem 1.5rem; background: #e5e7eb; border-radius: 8px;">
-			<div style="font-size: 1.5rem; font-weight: 700; color: #6b7280;">{{.Stats.IgnoredCount}}</div>
-			<div style="color: #6b7280; font-size: 0.875rem;">Ignored</div>
-		</div>
-		<div style="text-align: center; padding: 0.75rem 1.5rem; background: #dbeafe; border-radius: 8px;">
-			<div style="font-size: 1.5rem; font-weight: 700; color: #2563eb;">{{.Stats.CreatedCount}}</div>
-			<div style="color: #6b7280; font-size: 0.875rem;">Created</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+	<div class="card" style="margin-bottom: 0;">
+		<h3 style="margin-top: 0; margin-bottom: 1rem;">Matching Summary</h3>
+		<div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+			<div style="text-align: center; padding: 0.5rem 1rem; background: #f3f4f6; border-radius: 8px; flex: 1;">
+				<div style="font-size: 1.5rem; font-weight: 700;">{{.Stats.TotalTransactions}}</div>
+				<div style="color: #6b7280; font-size: 0.75rem;">Total</div>
+			</div>
+			<div style="text-align: center; padding: 0.5rem 1rem; background: #dcfce7; border-radius: 8px; flex: 1;">
+				<div style="font-size: 1.5rem; font-weight: 700; color: #16a34a;">{{.Stats.MatchedCount}}</div>
+				<div style="color: #6b7280; font-size: 0.75rem;">Matched</div>
+			</div>
+			<div style="text-align: center; padding: 0.5rem 1rem; background: #fef3c7; border-radius: 8px; flex: 1;">
+				<div style="font-size: 1.5rem; font-weight: 700; color: #d97706;">{{.Stats.UnmatchedCount}}</div>
+				<div style="color: #6b7280; font-size: 0.75rem;">Unmatched</div>
+			</div>
+			<div style="text-align: center; padding: 0.5rem 1rem; background: #e5e7eb; border-radius: 8px; flex: 1;">
+				<div style="font-size: 1.5rem; font-weight: 700; color: #6b7280;">{{.Stats.IgnoredCount}}</div>
+				<div style="color: #6b7280; font-size: 0.75rem;">Ignored</div>
+			</div>
+			<div style="text-align: center; padding: 0.5rem 1rem; background: #dbeafe; border-radius: 8px; flex: 1;">
+				<div style="font-size: 1.5rem; font-weight: 700; color: #2563eb;">{{.Stats.CreatedCount}}</div>
+				<div style="color: #6b7280; font-size: 0.75rem;">Created</div>
+			</div>
 		</div>
 	</div>
-	<div style="margin-top: 1rem; display: flex; gap: 2rem; color: #6b7280; font-size: 0.875rem;">
-		<div>Total Credits: <span style="color: #16a34a; font-weight: 600;">${{printf "%.2f" .Stats.TotalCredits}}</span></div>
-		<div>Total Debits: <span style="color: #dc2626; font-weight: 600;">${{printf "%.2f" .Stats.TotalDebits}}</span></div>
+
+	<div class="card" style="margin-bottom: 0;">
+		<h3 style="margin-top: 0; margin-bottom: 1rem;">Statement Summary (from PDF)</h3>
+		<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+			<div style="display: flex; justify-content: space-between; align-items: center;">
+				<span style="color: #6b7280;">Electronic Deposits</span>
+				<span style="font-weight: 600; color: #16a34a;">+${{printf "%.2f" .Reconciliation.ElectronicDeposits}}</span>
+			</div>
+			<div style="display: flex; justify-content: space-between; align-items: center;">
+				<span style="color: #6b7280;">Electronic Payments</span>
+				<span style="font-weight: 600; color: #dc2626;">-${{printf "%.2f" .Reconciliation.ElectronicPayments}}</span>
+			</div>
+			<div style="display: flex; justify-content: space-between; align-items: center;">
+				<span style="color: #6b7280;">Checks Paid</span>
+				<span style="font-weight: 600; color: #dc2626;">-${{printf "%.2f" .Reconciliation.ChecksPaid}}</span>
+			</div>
+			<div style="display: flex; justify-content: space-between; align-items: center;">
+				<span style="color: #6b7280;">Service Fees</span>
+				<span style="font-weight: 600; color: #dc2626;">-${{printf "%.2f" .Reconciliation.ServiceFees}}</span>
+			</div>
+		</div>
 	</div>
 </div>
 {{end}}
