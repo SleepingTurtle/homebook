@@ -281,11 +281,39 @@ type BankReconciliation struct {
 	StatementDateDisplay string  // formatted for display
 	StartingBalance      float64
 	EndingBalance        float64
-	Status               string // "in_progress" or "completed"
+	Status               string // pending, parsing, parsed, reconciling, completed
 	FilePath             string // stored filename in filestore
+	AccountLastFour      string
+	ParseJobID           *int64
+	ParsedAt             *time.Time
+	ReconciledAt         *time.Time
 	Notes                string
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
+}
+
+// BankTransaction represents a single transaction from a bank statement
+type BankTransaction struct {
+	ID               int64
+	ReconciliationID int64
+	PostingDate      string // YYYY-MM-DD
+	Description      string
+	Amount           float64 // negative for debits, positive for credits
+	TransactionType  string  // deposit, check, debit, ach, fee, transfer
+	Category         string  // income_cards, income_delivery, expense, fee, transfer
+	CheckNumber      string
+	VendorHint       string // extracted vendor name
+	ReferenceNumber  string
+	MatchedExpenseID *int64
+	MatchStatus      string // unmatched, matched, ignored, created
+	MatchConfidence  string // auto_exact, auto_fuzzy, manual
+	MatchedAt        *time.Time
+	Notes            string
+	CreatedAt        time.Time
+
+	// Joined fields for display
+	MatchedExpenseVendor string
+	MatchedExpenseDate   string
 }
 
 // MonthOption represents a month available for reconciliation
