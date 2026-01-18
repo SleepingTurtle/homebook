@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS bank_reconciliations (
     starting_balance REAL NOT NULL DEFAULT 0,
     ending_balance REAL NOT NULL DEFAULT 0,
     status TEXT CHECK(status IN ('in_progress', 'completed')) DEFAULT 'in_progress',
+    file_path TEXT DEFAULT '',
     notes TEXT DEFAULT '',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP

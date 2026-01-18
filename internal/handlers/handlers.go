@@ -11,21 +11,24 @@ import (
 
 	"homebooks/internal/auth"
 	"homebooks/internal/database"
+	"homebooks/internal/filestore"
 	"homebooks/internal/logger"
 	"homebooks/internal/models"
 )
 
 type Handler struct {
-	db   *database.DB
-	auth *auth.Auth
-	tmpl *template.Template
+	db    *database.DB
+	auth  *auth.Auth
+	tmpl  *template.Template
+	files *filestore.Store
 }
 
-func New(db *database.DB, a *auth.Auth, tmpl *template.Template) *Handler {
+func New(db *database.DB, a *auth.Auth, tmpl *template.Template, files *filestore.Store) *Handler {
 	return &Handler{
-		db:   db,
-		auth: a,
-		tmpl: tmpl,
+		db:    db,
+		auth:  a,
+		tmpl:  tmpl,
+		files: files,
 	}
 }
 
@@ -968,17 +971,28 @@ func (h *Handler) ReconciliationsUpload(w http.ResponseWriter, r *http.Request) 
 
 	l.Info("reconciliation_upload", "month", statementMonth, "filename", header.Filename, "size", header.Size)
 
+	// Save file to filestore
+	filePath, err := h.files.Save(header.Filename, file)
+	if err != nil {
+		l.Error("reconciliation_file_save_error", "error", err.Error())
+		http.Error(w, "Failed to save uploaded file", http.StatusInternalServerError)
+		return
+	}
+
 	// Create reconciliation record
 	recon := models.BankReconciliation{
 		StatementDate:   statementDate,
 		StartingBalance: 0,
 		EndingBalance:   0,
 		Status:          "in_progress",
+		FilePath:        filePath,
 		Notes:           fmt.Sprintf("Uploaded: %s", header.Filename),
 	}
 
 	id, err := h.db.CreateReconciliation(recon)
 	if err != nil {
+		// Clean up saved file on error
+		h.files.Delete(filePath)
 		l.Error("reconciliation_create_error", "error", err.Error())
 		http.Error(w, "Failed to create reconciliation", http.StatusInternalServerError)
 		return

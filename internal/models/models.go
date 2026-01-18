@@ -276,15 +276,16 @@ type GroupedSalesData struct {
 
 // BankReconciliation represents a bank statement reconciliation
 type BankReconciliation struct {
-	ID                 int64
-	StatementDate      string  // YYYY-MM-DD
-	StatementDateDisplay string // formatted for display
-	StartingBalance    float64
-	EndingBalance      float64
-	Status             string // "in_progress" or "completed"
-	Notes              string
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	ID                   int64
+	StatementDate        string  // YYYY-MM-DD
+	StatementDateDisplay string  // formatted for display
+	StartingBalance      float64
+	EndingBalance        float64
+	Status               string // "in_progress" or "completed"
+	FilePath             string // stored filename in filestore
+	Notes                string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 // MonthOption represents a month available for reconciliation
