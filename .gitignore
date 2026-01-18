@@ -1,3 +1,5 @@
 server
 data/
-
+*.db
+tmp/
+.DS_Store

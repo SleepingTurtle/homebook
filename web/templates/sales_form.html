@@ -7,64 +7,138 @@
 <div class="error">{{.Error}}</div>
 {{end}}
 
-<form action="{{if .Sale.ID}}/sales/{{.Sale.ID}}{{else}}/sales{{end}}" method="POST">
-	<div class="form-group">
-		<label for="date">Date</label>
-		<input type="date" id="date" name="date" value="{{.Sale.Date}}" required>
-	</div>
-
-	<div class="form-group">
-		<label>Shift</label>
-		<div class="toggle-group">
-			<input type="radio" id="shift-breakfast" name="shift" value="breakfast" {{if eq .Sale.Shift "breakfast"}}checked{{end}} required>
-			<label for="shift-breakfast">Breakfast</label>
-			<input type="radio" id="shift-lunch" name="shift" value="lunch" {{if eq .Sale.Shift "lunch"}}checked{{end}}>
-			<label for="shift-lunch">Lunch</label>
-			<input type="radio" id="shift-dinner" name="shift" value="dinner" {{if eq .Sale.Shift "dinner"}}checked{{end}}>
-			<label for="shift-dinner">Dinner</label>
+<form action="{{if .Sale.ID}}/sales/{{.Sale.ID}}{{else}}/sales{{end}}" method="POST" class="sales-form">
+	<!-- Date & Shift Row -->
+	<div class="form-section">
+		<div class="date-shift-row">
+			<div class="form-group date-group">
+				<label for="date">Date</label>
+				<input type="date" id="date" name="date" value="{{.Sale.Date}}" required>
+			</div>
+			<div class="shift-group">
+				<label>Shift</label>
+				<div class="shift-selector">
+					<label class="shift-option">
+						<input type="radio" name="shift" value="breakfast" {{if eq .Sale.Shift "breakfast"}}checked{{end}} required>
+						<span class="shift-card">
+							<span class="shift-icon">&#9788;</span>
+							<span class="shift-name">Breakfast</span>
+						</span>
+					</label>
+					<label class="shift-option">
+						<input type="radio" name="shift" value="lunch" {{if eq .Sale.Shift "lunch"}}checked{{end}}>
+						<span class="shift-card">
+							<span class="shift-icon">&#9728;</span>
+							<span class="shift-name">Lunch</span>
+						</span>
+					</label>
+					<label class="shift-option">
+						<input type="radio" name="shift" value="dinner" {{if eq .Sale.Shift "dinner"}}checked{{end}}>
+						<span class="shift-card">
+							<span class="shift-icon">&#9790;</span>
+							<span class="shift-name">Dinner</span>
+						</span>
+					</label>
+				</div>
+			</div>
 		</div>
 	</div>
 
-	<div class="form-group">
-		<label for="net_sales">Net Sales</label>
-		<input type="number" id="net_sales" name="net_sales" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.NetSales}}{{end}}" required>
+	<!-- All Money Fields in a Grid -->
+	<div class="form-section">
+		<h3 class="form-section-title">Sales & Payments</h3>
+		<div class="money-grid">
+			<div class="form-group">
+				<label for="net_sales">Net Sales</label>
+				<div class="input-with-prefix">
+					<span class="input-prefix">$</span>
+					<input type="number" id="net_sales" name="net_sales" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.NetSales}}{{end}}" required>
+				</div>
+			</div>
+			<div class="form-group">
+				<label for="taxes">Taxes</label>
+				<div class="input-with-prefix">
+					<span class="input-prefix">$</span>
+					<input type="number" id="taxes" name="taxes" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.Taxes}}{{end}}" required>
+				</div>
+			</div>
+			<div class="form-group">
+				<label for="credit_card">Credit Card</label>
+				<div class="input-with-prefix">
+					<span class="input-prefix">$</span>
+					<input type="number" id="credit_card" name="credit_card" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.CreditCard}}{{end}}" required>
+				</div>
+			</div>
+			<div class="form-group">
+				<label for="cash_receipt">Cash (Receipt)</label>
+				<div class="input-with-prefix">
+					<span class="input-prefix">$</span>
+					<input type="number" id="cash_receipt" name="cash_receipt" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.CashReceipt}}{{end}}" required>
+				</div>
+			</div>
+			<div class="form-group">
+				<label for="cash_on_hand">Cash On Hand</label>
+				<div class="input-with-prefix">
+					<span class="input-prefix">$</span>
+					<input type="number" id="cash_on_hand" name="cash_on_hand" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.CashOnHand}}{{end}}" required>
+				</div>
+			</div>
+		</div>
 	</div>
 
-	<div class="form-group">
-		<label for="taxes">Taxes</label>
-		<input type="number" id="taxes" name="taxes" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.Taxes}}{{end}}" required>
+	<!-- Live Summary Bar -->
+	<div class="summary-bar">
+		<div class="summary-item">
+			<span class="summary-label">Gross Sales</span>
+			<span class="summary-value" id="summary-gross">$0.00</span>
+		</div>
+		<div class="summary-item">
+			<span class="summary-label">Card</span>
+			<span class="summary-value" id="summary-cc">$0.00</span>
+		</div>
+		<div class="summary-item">
+			<span class="summary-label">Cash Expected</span>
+			<span class="summary-value" id="summary-cash-receipt">$0.00</span>
+		</div>
+		<div class="summary-item">
+			<span class="summary-label">Cash Counted</span>
+			<span class="summary-value" id="summary-cash-counted">$0.00</span>
+		</div>
+		<div class="summary-item summary-variance">
+			<span class="summary-label">Variance</span>
+			<span class="summary-value" id="summary-variance">$0.00</span>
+			<span class="variance-badge" id="variance-badge"></span>
+		</div>
 	</div>
 
-	<div class="form-group">
-		<label for="credit_card">Credit Card Amount</label>
-		<input type="number" id="credit_card" name="credit_card" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.CreditCard}}{{end}}" required>
+	<!-- Notes -->
+	<div class="form-section">
+		<h3 class="form-section-title">Notes</h3>
+		<div class="form-group">
+			<textarea id="notes" name="notes" rows="2" placeholder="Any notes about this shift (optional)...">{{.Sale.Notes}}</textarea>
+		</div>
 	</div>
 
-	<div class="form-group">
-		<label for="cash_receipt">Cash Amount (from receipt)</label>
-		<input type="number" id="cash_receipt" name="cash_receipt" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.CashReceipt}}{{end}}" required>
-	</div>
-
-	<div class="form-group">
-		<label for="cash_on_hand">Cash On Hand (counted)</label>
-		<input type="number" id="cash_on_hand" name="cash_on_hand" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.CashOnHand}}{{end}}" required>
-	</div>
-
-	<div class="form-group">
-		<label for="notes">Notes (optional)</label>
-		<textarea id="notes" name="notes">{{.Sale.Notes}}</textarea>
-	</div>
-
-	<div style="display: flex; gap: 0.5rem;">
-		<button type="submit" class="btn btn-primary">{{if .Sale.ID}}Update{{else}}Save{{end}}</button>
-		<a href="/sales" class="btn btn-secondary">Cancel</a>
+	<!-- Actions -->
+	<div class="form-actions-row">
+		<div class="form-actions-left">
+			{{if .Sale.ID}}
+			<button type="button" class="btn btn-danger-outline" onclick="if(confirm('Delete this sale entry? This cannot be undone.')) document.getElementById('delete-form').submit();">
+				Delete Entry
+			</button>
+			{{end}}
+		</div>
+		<div class="form-actions-right">
+			<a href="/sales" class="btn btn-secondary">Cancel</a>
+			<button type="submit" class="btn btn-primary">
+				{{if .Sale.ID}}Update Sale{{else}}Save Sale{{end}}
+			</button>
+		</div>
 	</div>
 </form>
 
 {{if .Sale.ID}}
-<form action="/sales/{{.Sale.ID}}/delete" method="POST" style="margin-top: 2rem;" onsubmit="return confirm('Delete this sale entry?')">
-	<button type="submit" class="btn btn-danger">Delete This Entry</button>
-</form>
+<form id="delete-form" action="/sales/{{.Sale.ID}}/delete" method="POST" style="display: none;"></form>
 {{end}}
 
 <script>
@@ -77,16 +151,16 @@
 	function updateShiftAvailability(existingShifts) {
 		shiftInputs.forEach(input => {
 			const shift = input.value;
-			const label = input.nextElementSibling;
+			const card = input.closest('.shift-option');
 			const isExisting = existingShifts.includes(shift);
 			const isCurrentShift = isEditing && shift === currentShift;
 
 			if (isExisting && !isCurrentShift) {
 				input.disabled = true;
-				label.classList.add('disabled');
+				card.classList.add('disabled');
 			} else {
 				input.disabled = false;
-				label.classList.remove('disabled');
+				card.classList.remove('disabled');
 			}
 		});
 	}
@@ -107,10 +181,385 @@
 		fetchShifts(this.value);
 	});
 
-	// Fetch on page load
 	if (dateInput.value) {
 		fetchShifts(dateInput.value);
 	}
+
+	// Live summary calculations
+	const netSales = document.getElementById('net_sales');
+	const taxes = document.getElementById('taxes');
+	const creditCard = document.getElementById('credit_card');
+	const cashReceipt = document.getElementById('cash_receipt');
+	const cashOnHand = document.getElementById('cash_on_hand');
+
+	const summaryGross = document.getElementById('summary-gross');
+	const summaryCC = document.getElementById('summary-cc');
+	const summaryCashReceipt = document.getElementById('summary-cash-receipt');
+	const summaryCashCounted = document.getElementById('summary-cash-counted');
+	const summaryVariance = document.getElementById('summary-variance');
+	const varianceBadge = document.getElementById('variance-badge');
+
+	function formatMoney(val) {
+		return '$' + Math.abs(val).toFixed(2);
+	}
+
+	function updateSummary() {
+		const net = parseFloat(netSales.value) || 0;
+		const tax = parseFloat(taxes.value) || 0;
+		const cc = parseFloat(creditCard.value) || 0;
+		const cashR = parseFloat(cashReceipt.value) || 0;
+		const cashH = parseFloat(cashOnHand.value) || 0;
+
+		const gross = net + tax;
+		const variance = cashH - cashR;
+
+		summaryGross.textContent = formatMoney(gross);
+		summaryCC.textContent = formatMoney(cc);
+		summaryCashReceipt.textContent = formatMoney(cashR);
+		summaryCashCounted.textContent = formatMoney(cashH);
+
+		const prefix = variance >= 0 ? '+' : '-';
+		summaryVariance.textContent = prefix + formatMoney(variance);
+
+		// Style variance
+		summaryVariance.classList.remove('variance-positive', 'variance-negative', 'variance-zero');
+		varianceBadge.classList.remove('variance-positive', 'variance-negative', 'variance-zero');
+
+		if (variance > 0.01) {
+			summaryVariance.classList.add('variance-positive');
+			varianceBadge.classList.add('variance-positive');
+			varianceBadge.textContent = 'Over';
+		} else if (variance < -0.01) {
+			summaryVariance.classList.add('variance-negative');
+			varianceBadge.classList.add('variance-negative');
+			varianceBadge.textContent = 'Short';
+		} else {
+			summaryVariance.classList.add('variance-zero');
+			varianceBadge.classList.add('variance-zero');
+			varianceBadge.textContent = 'Balanced';
+		}
+	}
+
+	[netSales, taxes, creditCard, cashReceipt, cashOnHand].forEach(input => {
+		input.addEventListener('input', updateSummary);
+	});
+
+	updateSummary();
 })();
 </script>
+
+<style>
+.sales-form {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+
+.form-section {
+	background: white;
+	border: 1px solid #e5e7eb;
+	border-radius: 8px;
+	padding: 1.5rem;
+}
+
+.form-section-title {
+	font-size: 0.8125rem;
+	font-weight: 600;
+	color: #6b7280;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	margin: 0 0 1.25rem 0;
+}
+
+/* Date & Shift Row */
+.date-shift-row {
+	display: flex;
+	align-items: flex-end;
+	gap: 2rem;
+	flex-wrap: wrap;
+}
+
+.date-group {
+	width: 180px;
+	flex-shrink: 0;
+}
+
+.shift-group {
+	flex: 1;
+	min-width: 300px;
+}
+
+.shift-group > label {
+	display: block;
+	margin-bottom: 0.5rem;
+	font-weight: 500;
+	color: #374151;
+}
+
+.shift-selector {
+	display: flex;
+	gap: 0.75rem;
+}
+
+.shift-option {
+	cursor: pointer;
+	flex: 1;
+	max-width: 140px;
+}
+
+.shift-option input {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.shift-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 0.875rem 0.5rem;
+	border: 2px solid #e5e7eb;
+	border-radius: 8px;
+	background: #fafafa;
+	transition: all 0.15s ease;
+}
+
+.shift-option:hover .shift-card {
+	border-color: #d1d5db;
+	background: white;
+}
+
+.shift-option input:checked + .shift-card {
+	border-color: #3b82f6;
+	background: #eff6ff;
+}
+
+.shift-option.disabled {
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+
+.shift-option.disabled .shift-card {
+	background: #f3f4f6;
+}
+
+.shift-icon {
+	font-size: 1.25rem;
+	margin-bottom: 0.125rem;
+}
+
+.shift-name {
+	font-size: 0.8125rem;
+	font-weight: 500;
+	color: #374151;
+}
+
+/* Money Grid */
+.money-grid {
+	display: grid;
+	grid-template-columns: repeat(5, 1fr);
+	gap: 1.25rem;
+}
+
+@media (max-width: 1000px) {
+	.money-grid {
+		grid-template-columns: repeat(3, 1fr);
+	}
+}
+
+@media (max-width: 600px) {
+	.money-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+.money-grid .form-group {
+	margin-bottom: 0;
+}
+
+.input-with-prefix {
+	display: flex;
+	align-items: stretch;
+}
+
+.input-prefix {
+	display: flex;
+	align-items: center;
+	padding: 0 0.75rem;
+	background: #f3f4f6;
+	border: 1px solid #d1d5db;
+	border-right: none;
+	border-radius: 6px 0 0 6px;
+	color: #6b7280;
+	font-weight: 500;
+}
+
+.input-with-prefix input {
+	border-radius: 0 6px 6px 0;
+	flex: 1;
+	min-width: 0;
+}
+
+/* Summary Bar */
+.summary-bar {
+	display: flex;
+	background: #1e293b;
+	border-radius: 8px;
+	padding: 1rem 1.5rem;
+	gap: 2rem;
+	flex-wrap: wrap;
+}
+
+.summary-item {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+.summary-item .summary-label {
+	font-size: 0.6875rem;
+	font-weight: 500;
+	color: #94a3b8;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.summary-item .summary-value {
+	font-size: 1.25rem;
+	font-weight: 600;
+	color: white;
+	font-family: monospace;
+}
+
+.summary-variance {
+	margin-left: auto;
+	align-items: flex-end;
+	position: relative;
+}
+
+.variance-badge {
+	font-size: 0.625rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	padding: 0.125rem 0.5rem;
+	border-radius: 4px;
+	margin-top: 0.25rem;
+}
+
+.variance-badge.variance-positive {
+	background: #166534;
+	color: #bbf7d0;
+}
+
+.variance-badge.variance-negative {
+	background: #991b1b;
+	color: #fecaca;
+}
+
+.variance-badge.variance-zero {
+	background: #475569;
+	color: #e2e8f0;
+}
+
+.summary-value.variance-positive {
+	color: #4ade80 !important;
+}
+
+.summary-value.variance-negative {
+	color: #f87171 !important;
+}
+
+.summary-value.variance-zero {
+	color: #94a3b8 !important;
+}
+
+/* Actions Row */
+.form-actions-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding-top: 0.5rem;
+}
+
+.form-actions-left {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.form-actions-right {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.btn-danger-outline {
+	background: white;
+	color: #dc2626;
+	border: 1px solid #fecaca;
+}
+
+.btn-danger-outline:hover {
+	background: #fef2f2;
+	border-color: #dc2626;
+}
+
+@media (max-width: 600px) {
+	.date-shift-row {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 1rem;
+	}
+
+	.date-group {
+		width: 100%;
+	}
+
+	.shift-group {
+		min-width: 0;
+	}
+
+	.shift-option {
+		max-width: none;
+	}
+
+	.summary-bar {
+		gap: 1rem;
+	}
+
+	.summary-item {
+		flex: 1;
+		min-width: 80px;
+	}
+
+	.summary-variance {
+		margin-left: 0;
+		flex-basis: 100%;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		padding-top: 0.75rem;
+		border-top: 1px solid #334155;
+	}
+
+	.form-actions-row {
+		flex-direction: column-reverse;
+		gap: 1rem;
+	}
+
+	.form-actions-left, .form-actions-right {
+		width: 100%;
+	}
+
+	.form-actions-right {
+		flex-direction: column;
+	}
+
+	.form-actions-right .btn {
+		width: 100%;
+	}
+
+	.form-actions-left .btn {
+		width: 100%;
+	}
+}
+</style>
 {{template "footer" .}}

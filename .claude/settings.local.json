@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(sqlite3:*)",
+      "Bash(curl -s -L -c /tmp/cookies.txt -X POST -d \"password=changeme\" http://localhost:8080/login -o /dev/null curl -s -b /tmp/cookies.txt http://localhost:8080/expenses)",
+      "Bash(pkill:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs:*)"
     ]
   }
 }

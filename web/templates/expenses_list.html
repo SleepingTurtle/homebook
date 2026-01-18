@@ -1,85 +1,153 @@
 {{template "header" .}}
 <div class="page-header">
-	<h1>Expenses</h1>
-	<a href="/expenses/new" class="btn btn-primary">Add Expense</a>
+	<h1>Receipts</h1>
+	<div class="page-header-actions">
+		<a href="/bank-statements" class="btn btn-secondary">Bank Statements</a>
+		<a href="/vendors" class="btn btn-secondary">Vendors</a>
+		<a href="/expenses/new" class="btn btn-primary">Add Receipt</a>
+	</div>
 </div>
 
-<form action="/expenses" method="GET" class="filter-bar">
-	<div class="form-group">
-		<label for="start_date">Start Date</label>
-		<input type="date" id="start_date" name="start_date" value="{{.Filter.StartDate}}">
-	</div>
-	<div class="form-group">
-		<label for="end_date">End Date</label>
-		<input type="date" id="end_date" name="end_date" value="{{.Filter.EndDate}}">
-	</div>
-	<div class="form-group narrow">
-		<label for="status">Status</label>
-		<select id="status" name="status">
-			<option value="">All</option>
-			<option value="not_paid" {{if eq .Filter.Status "not_paid"}}selected{{end}}>Unpaid</option>
-			<option value="paid" {{if eq .Filter.Status "paid"}}selected{{end}}>Paid</option>
-		</select>
-	</div>
-	<div class="form-group">
-		<label for="vendor_id">Vendor</label>
-		<select id="vendor_id" name="vendor_id">
-			<option value="">All Vendors</option>
-			{{range .Vendors}}
-			<option value="{{.ID}}" {{if eq $.Filter.VendorID .ID}}selected{{end}}>{{.Name}}</option>
-			{{end}}
-		</select>
-	</div>
-	<button type="submit" class="btn btn-secondary">Filter</button>
-	<a href="/expenses" class="btn btn-secondary">Clear</a>
-</form>
+<div class="sidebar-layout">
+	<aside class="sidebar">
+		<form action="/expenses" method="GET" class="sidebar-filter">
+			<h3 class="sidebar-title">Filters</h3>
+			<div class="form-group">
+				<label for="start_date">Start Date</label>
+				<input type="date" id="start_date" name="start_date" value="{{.Filter.StartDate}}">
+			</div>
+			<div class="form-group">
+				<label for="end_date">End Date</label>
+				<input type="date" id="end_date" name="end_date" value="{{.Filter.EndDate}}">
+			</div>
+			<div class="form-group">
+				<label for="vendor_id">Vendor</label>
+				<select id="vendor_id" name="vendor_id">
+					<option value="">All Vendors</option>
+					{{range .Vendors}}
+					<option value="{{.ID}}" {{if eq $.Filter.VendorID .ID}}selected{{end}}>{{.Name}}</option>
+					{{end}}
+				</select>
+			</div>
+			<div class="form-group">
+				<label>Status</label>
+				<div class="sidebar-toggle-group">
+					<input type="radio" id="status-all" name="status" value="" {{if eq .Filter.Status ""}}checked{{end}}>
+					<label for="status-all">All</label>
+					<input type="radio" id="status-unpaid" name="status" value="not_paid" {{if eq .Filter.Status "not_paid"}}checked{{end}}>
+					<label for="status-unpaid">Unpaid</label>
+					<input type="radio" id="status-paid" name="status" value="paid" {{if eq .Filter.Status "paid"}}checked{{end}}>
+					<label for="status-paid">Paid</label>
+				</div>
+			</div>
+			<div class="form-group">
+				<label>Categories</label>
+				<div class="sidebar-category-toggles">
+					{{range .Categories}}
+					<input type="checkbox" id="cat-filter-{{.}}" name="category" value="{{.}}" {{if $.Filter.HasCategory .}}checked{{end}}>
+					<label for="cat-filter-{{.}}">{{.}}</label>
+					{{end}}
+				</div>
+			</div>
+			<div class="sidebar-actions">
+				<button type="submit" class="btn btn-primary">Apply</button>
+				<a href="/expenses" class="btn btn-secondary">Clear</a>
+			</div>
+		</form>
+	</aside>
 
-{{if .Expenses}}
-<table>
-	<thead>
-		<tr>
-			<th>Date</th>
-			<th>Vendor</th>
-			<th class="money">Amount</th>
-			<th class="hide-mobile">Invoice #</th>
-			<th>Status</th>
-			<th class="hide-mobile">Payment</th>
-			<th class="actions"></th>
-		</tr>
-	</thead>
-	<tbody>
-		{{range .Expenses}}
-		<tr>
-			<td>{{.Date}}</td>
-			<td>{{.VendorName}}</td>
-			<td class="money">${{printf "%.2f" .Amount}}</td>
-			<td class="hide-mobile">{{.InvoiceNumber}}</td>
-			<td>
-				{{if eq .Status "paid"}}
-				<span class="status status-paid">Paid</span>
-				{{else}}
-				<span class="status status-unpaid">Unpaid</span>
+	<main class="main-content">
+		{{if .Expenses}}
+		<table>
+			<thead>
+				<tr>
+					<th>Date</th>
+					<th>Vendor</th>
+					<th class="money">Amount</th>
+					<th class="hide-mobile">Invoice #</th>
+					<th class="hide-mobile">Due Date</th>
+					<th>Status</th>
+					<th class="hide-mobile">Payment</th>
+					<th class="hide-mobile">Receipt</th>
+					<th class="actions"></th>
+				</tr>
+			</thead>
+			<tbody>
+				{{range .Expenses}}
+				<tr>
+					<td>{{.Date}}</td>
+					<td><a href="/vendors/{{.VendorID}}">{{.VendorName}}</a></td>
+					<td class="money">${{printf "%.2f" .Amount}}</td>
+					<td class="hide-mobile">{{.InvoiceNumber}}</td>
+					<td class="hide-mobile">{{.DueDate}}</td>
+					<td>
+						{{if eq .Status "paid"}}
+						<span class="status status-paid">Paid</span>
+						{{else}}
+						<span class="status status-unpaid">Unpaid</span>
+						{{end}}
+					</td>
+					<td class="hide-mobile">{{.PaymentType}} {{if .CheckNumber}}#{{.CheckNumber}}{{end}}</td>
+					<td class="hide-mobile">
+						{{if .ReceiptPath}}
+						<a href="/expenses/{{.ID}}/receipt" target="_blank" title="View Receipt" style="color: #16a34a;">View</a>
+						{{else}}
+						<label class="receipt-upload-label" title="Upload Receipt">
+							<input type="file" class="receipt-upload-input" data-expense-id="{{.ID}}" accept=".pdf,.jpg,.jpeg,.png,.gif" style="display: none;">
+							<span style="color: #9ca3af; cursor: pointer;">Upload</span>
+						</label>
+						{{end}}
+					</td>
+					<td class="actions">
+						{{if eq .Status "not_paid"}}
+						<a href="/expenses/{{.ID}}/pay" class="btn btn-success btn-small">Mark Paid</a>
+						{{end}}
+						<a href="/expenses/{{.ID}}/edit" class="btn btn-secondary btn-small">Edit</a>
+					</td>
+				</tr>
 				{{end}}
-			</td>
-			<td class="hide-mobile">{{.PaymentType}} {{if .CheckNumber}}#{{.CheckNumber}}{{end}}</td>
-			<td class="actions">
-				{{if eq .Status "not_paid"}}
-				<form action="/expenses/{{.ID}}/pay" method="POST" style="display:inline">
-					<button type="submit" class="btn btn-success btn-small">Mark Paid</button>
-				</form>
-				{{end}}
-				<a href="/expenses/{{.ID}}/edit" class="btn btn-secondary btn-small">Edit</a>
-			</td>
-		</tr>
+				<tr class="totals-row">
+					<td colspan="2">Total</td>
+					<td class="money">${{printf "%.2f" .Total}}</td>
+					<td colspan="6"></td>
+				</tr>
+			</tbody>
+		</table>
+
+		<script>
+		// Quick receipt upload handler
+		document.querySelectorAll('.receipt-upload-input').forEach(function(input) {
+			input.addEventListener('change', function() {
+				if (this.files.length === 0) return;
+				var expenseId = this.dataset.expenseId;
+				var formData = new FormData();
+				formData.append('receipt', this.files[0]);
+
+				// Show uploading state
+				var label = this.parentElement.querySelector('span');
+				var originalText = label.textContent;
+				label.textContent = 'Uploading...';
+
+				fetch('/expenses/' + expenseId + '/receipt', {
+					method: 'POST',
+					body: formData
+				}).then(function(response) {
+					if (response.ok) {
+						window.location.reload();
+					} else {
+						alert('Upload failed');
+						label.textContent = originalText;
+					}
+				}).catch(function(err) {
+					alert('Upload error: ' + err.message);
+					label.textContent = originalText;
+				});
+			});
+		});
+		</script>
+		{{else}}
+		<p class="empty-state">No receipts found. Add one using the button above.</p>
 		{{end}}
-		<tr class="totals-row">
-			<td colspan="2">Total</td>
-			<td class="money">${{printf "%.2f" .Total}}</td>
-			<td colspan="4"></td>
-		</tr>
-	</tbody>
-</table>
-{{else}}
-<p class="empty-state">No expenses found. Add one using the button above.</p>
-{{end}}
+	</main>
+</div>
 {{template "footer" .}}

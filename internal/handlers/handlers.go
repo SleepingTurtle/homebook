@@ -2,58 +2,70 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
+	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"homebooks/internal/auth"
 	"homebooks/internal/database"
+	"homebooks/internal/filestore"
+	"homebooks/internal/logger"
 	"homebooks/internal/models"
 )
 
 type Handler struct {
-	db   *database.DB
-	auth *auth.Auth
-	tmpl *template.Template
+	db    *database.DB
+	auth  *auth.Auth
+	tmpl  *template.Template
+	files *filestore.Store
 }
 
-func New(db *database.DB, a *auth.Auth, tmpl *template.Template) *Handler {
+func New(db *database.DB, a *auth.Auth, tmpl *template.Template, files *filestore.Store) *Handler {
 	return &Handler{
-		db:   db,
-		auth: a,
-		tmpl: tmpl,
+		db:    db,
+		auth:  a,
+		tmpl:  tmpl,
+		files: files,
 	}
 }
 
-func (h *Handler) render(w http.ResponseWriter, name string, data map[string]interface{}) {
+func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, data map[string]interface{}) {
 	err := h.tmpl.ExecuteTemplate(w, name, data)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		l := logger.FromContext(r.Context())
+		l.Error("template_render_error", "template", name, "error", err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
 
 // Login handlers
 func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	token := h.auth.GetSessionFromRequest(r)
-	if token != "" && h.auth.ValidateSession(token) {
+	if token != "" && h.auth.ValidateSession(ctx, token) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	h.render(w, "login.html", map[string]interface{}{"Error": ""})
+	h.render(w, r, "login.html", map[string]interface{}{"Error": ""})
 }
 
 func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	password := r.FormValue("password")
 
-	if !h.auth.CheckPassword(password) {
-		h.render(w, "login.html", map[string]interface{}{"Error": "Invalid password"})
+	if !h.auth.CheckPassword(ctx, password) {
+		h.render(w, r, "login.html", map[string]interface{}{"Error": "Invalid password"})
 		return
 	}
 
-	token, err := h.auth.CreateSession()
+	token, err := h.auth.CreateSession(ctx)
 	if err != nil {
-		h.render(w, "login.html", map[string]interface{}{"Error": "Failed to create session"})
+		h.render(w, r, "login.html", map[string]interface{}{"Error": "Failed to create session"})
 		return
 	}
 
@@ -62,9 +74,10 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	token := h.auth.GetSessionFromRequest(r)
 	if token != "" {
-		h.auth.DeleteSession(token)
+		h.auth.DeleteSession(ctx, token)
 	}
 	h.auth.ClearSessionCookie(w)
 	http.Redirect(w, r, "/login", http.StatusFound)
@@ -73,21 +86,21 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 // Dashboard
 func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	unpaidExpenses, expenseTotal, _ := h.db.ListUnpaidExpenses()
-	unpaidPayroll, payrollTotal, _ := h.db.ListUnpaidPayroll()
 	recentSalesGrouped, recentSalesTotal, _ := h.db.ListRecentSalesGrouped(7)
+	todaySalesTotal, _ := h.db.GetTodaySalesTotal()
+	todayExpensesTotal, _ := h.db.GetTodayExpensesTotal()
 
 	data := models.DashboardData{
+		TodaySalesTotal:      todaySalesTotal,
+		TodayExpensesTotal:   todayExpensesTotal,
 		UnpaidExpensesTotal:  expenseTotal,
 		UnpaidExpensesCount:  len(unpaidExpenses),
-		UnpaidPayrollTotal:   payrollTotal,
-		UnpaidPayrollCount:   len(unpaidPayroll),
 		RecentSalesGrouped:   recentSalesGrouped,
 		RecentSalesTotal:     recentSalesTotal,
 		UnpaidExpenses:       unpaidExpenses,
-		UnpaidPayroll:        unpaidPayroll,
 	}
 
-	h.render(w, "dashboard.html", map[string]interface{}{
+	h.render(w, r, "dashboard.html", map[string]interface{}{
 		"Title":  "Dashboard",
 		"Active": "dashboard",
 		"Data":   data,
@@ -96,16 +109,36 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 
 // Vendors handlers
 func (h *Handler) VendorsList(w http.ResponseWriter, r *http.Request) {
-	vendors, _ := h.db.ListVendors()
-	h.render(w, "vendors_list.html", map[string]interface{}{
+	vendors, err := h.db.ListVendors()
+	if err != nil {
+		logger.FromContext(r.Context()).Error("vendor_list_error", "error", err.Error())
+	}
+	h.render(w, r, "vendors_list.html", map[string]interface{}{
 		"Title":   "Vendors",
 		"Active":  "vendors",
 		"Vendors": vendors,
 	})
 }
 
+func (h *Handler) VendorsShow(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	vendor, err := h.db.GetVendor(id)
+	if err != nil {
+		http.Redirect(w, r, "/vendors", http.StatusFound)
+		return
+	}
+	expenses, total, _ := h.db.ListExpenses(models.ExpenseFilter{VendorID: id})
+	h.render(w, r, "vendors_show.html", map[string]interface{}{
+		"Title":    vendor.Name,
+		"Active":   "vendors",
+		"Vendor":   vendor,
+		"Expenses": expenses,
+		"Total":    total,
+	})
+}
+
 func (h *Handler) VendorsNew(w http.ResponseWriter, r *http.Request) {
-	h.render(w, "vendors_form.html", map[string]interface{}{
+	h.render(w, r, "vendors_form.html", map[string]interface{}{
 		"Title":      "New Vendor",
 		"Active":     "vendors",
 		"Vendor":     models.Vendor{},
@@ -114,12 +147,14 @@ func (h *Handler) VendorsNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) VendorsCreate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	name := r.FormValue("name")
-	category := r.FormValue("category")
+	categories := r.Form["category"]
+	category := strings.Join(categories, ",")
 	description := r.FormValue("description")
 
 	if name == "" {
-		h.render(w, "vendors_form.html", map[string]interface{}{
+		h.render(w, r, "vendors_form.html", map[string]interface{}{
 			"Title":      "New Vendor",
 			"Active":     "vendors",
 			"Vendor":     models.Vendor{Name: name, Category: category, Description: description},
@@ -131,7 +166,7 @@ func (h *Handler) VendorsCreate(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.db.CreateVendor(name, category, description)
 	if err != nil {
-		h.render(w, "vendors_form.html", map[string]interface{}{
+		h.render(w, r, "vendors_form.html", map[string]interface{}{
 			"Title":      "New Vendor",
 			"Active":     "vendors",
 			"Vendor":     models.Vendor{Name: name, Category: category, Description: description},
@@ -151,7 +186,7 @@ func (h *Handler) VendorsEdit(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/vendors", http.StatusFound)
 		return
 	}
-	h.render(w, "vendors_form.html", map[string]interface{}{
+	h.render(w, r, "vendors_form.html", map[string]interface{}{
 		"Title":      "Edit Vendor",
 		"Active":     "vendors",
 		"Vendor":     vendor,
@@ -160,13 +195,15 @@ func (h *Handler) VendorsEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) VendorsUpdate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	name := r.FormValue("name")
-	category := r.FormValue("category")
+	categories := r.Form["category"]
+	category := strings.Join(categories, ",")
 	description := r.FormValue("description")
 
 	if name == "" {
-		h.render(w, "vendors_form.html", map[string]interface{}{
+		h.render(w, r, "vendors_form.html", map[string]interface{}{
 			"Title":      "Edit Vendor",
 			"Active":     "vendors",
 			"Vendor":     models.Vendor{ID: id, Name: name, Category: category, Description: description},
@@ -178,7 +215,7 @@ func (h *Handler) VendorsUpdate(w http.ResponseWriter, r *http.Request) {
 
 	err := h.db.UpdateVendor(id, name, category, description)
 	if err != nil {
-		h.render(w, "vendors_form.html", map[string]interface{}{
+		h.render(w, r, "vendors_form.html", map[string]interface{}{
 			"Title":      "Edit Vendor",
 			"Active":     "vendors",
 			"Vendor":     models.Vendor{ID: id, Name: name, Category: category, Description: description},
@@ -200,7 +237,7 @@ func (h *Handler) VendorsDelete(w http.ResponseWriter, r *http.Request) {
 // Employees handlers
 func (h *Handler) EmployeesList(w http.ResponseWriter, r *http.Request) {
 	employees, _ := h.db.ListEmployees(false)
-	h.render(w, "employees_list.html", map[string]interface{}{
+	h.render(w, r, "employees_list.html", map[string]interface{}{
 		"Title":     "Employees",
 		"Active":    "employees",
 		"Employees": employees,
@@ -214,7 +251,7 @@ func (h *Handler) EmployeesCreate(w http.ResponseWriter, r *http.Request) {
 
 	if name == "" || hourlyRate <= 0 {
 		employees, _ := h.db.ListEmployees(false)
-		h.render(w, "employees_list.html", map[string]interface{}{
+		h.render(w, r, "employees_list.html", map[string]interface{}{
 			"Title":     "Employees",
 			"Active":    "employees",
 			"Employees": employees,
@@ -226,7 +263,7 @@ func (h *Handler) EmployeesCreate(w http.ResponseWriter, r *http.Request) {
 	_, err := h.db.CreateEmployee(name, hourlyRate, paymentMethod)
 	if err != nil {
 		employees, _ := h.db.ListEmployees(false)
-		h.render(w, "employees_list.html", map[string]interface{}{
+		h.render(w, r, "employees_list.html", map[string]interface{}{
 			"Title":     "Employees",
 			"Active":    "employees",
 			"Employees": employees,
@@ -253,7 +290,7 @@ func (h *Handler) EmployeesReactivate(w http.ResponseWriter, r *http.Request) {
 // Sales handlers
 func (h *Handler) SalesList(w http.ResponseWriter, r *http.Request) {
 	grouped, _ := h.db.ListSalesGrouped()
-	h.render(w, "sales_list.html", map[string]any{
+	h.render(w, r, "sales_list.html", map[string]any{
 		"Title":     "Daily Sales",
 		"Active":    "sales",
 		"Grouped":   grouped,
@@ -263,7 +300,7 @@ func (h *Handler) SalesList(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) SalesNew(w http.ResponseWriter, r *http.Request) {
 	sale := models.DailySale{Date: time.Now().Format("2006-01-02")}
-	h.render(w, "sales_form.html", map[string]interface{}{
+	h.render(w, r, "sales_form.html", map[string]interface{}{
 		"Title":  "New Sale",
 		"Active": "sales",
 		"Sale":   sale,
@@ -284,7 +321,7 @@ func (h *Handler) SalesCreate(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.db.UpsertSale(sale)
 	if err != nil {
-		h.render(w, "sales_form.html", map[string]interface{}{
+		h.render(w, r, "sales_form.html", map[string]interface{}{
 			"Title":  "New Sale",
 			"Active": "sales",
 			"Sale":   sale,
@@ -302,7 +339,7 @@ func (h *Handler) SalesEdit(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/sales", http.StatusFound)
 		return
 	}
-	h.render(w, "sales_form.html", map[string]interface{}{
+	h.render(w, r, "sales_form.html", map[string]interface{}{
 		"Title":  "Edit Sale",
 		"Active": "sales",
 		"Sale":   sale,
@@ -325,7 +362,7 @@ func (h *Handler) SalesUpdate(w http.ResponseWriter, r *http.Request) {
 
 	err := h.db.UpdateSale(sale)
 	if err != nil {
-		h.render(w, "sales_form.html", map[string]interface{}{
+		h.render(w, r, "sales_form.html", map[string]interface{}{
 			"Title":  "Edit Sale",
 			"Active": "sales",
 			"Sale":   sale,
@@ -360,7 +397,7 @@ func (h *Handler) DeliveryNew(w http.ResponseWriter, r *http.Request) {
 		date = time.Now().Format("2006-01-02")
 	}
 	delivery := models.DeliverySales{Date: date}
-	h.render(w, "delivery_form.html", map[string]any{
+	h.render(w, r, "delivery_form.html", map[string]any{
 		"Title":    "Add Delivery Sales",
 		"Active":   "sales",
 		"Delivery": delivery,
@@ -377,7 +414,7 @@ func (h *Handler) DeliveryEdit(w http.ResponseWriter, r *http.Request) {
 	if delivery == nil {
 		delivery = &models.DeliverySales{Date: date}
 	}
-	h.render(w, "delivery_form.html", map[string]any{
+	h.render(w, r, "delivery_form.html", map[string]any{
 		"Title":    "Edit Delivery Sales",
 		"Active":   "sales",
 		"Delivery": *delivery,
@@ -405,7 +442,7 @@ func (h *Handler) DeliverySave(w http.ResponseWriter, r *http.Request) {
 
 	err := h.db.UpsertDeliverySales(delivery)
 	if err != nil {
-		h.render(w, "delivery_form.html", map[string]any{
+		h.render(w, r, "delivery_form.html", map[string]any{
 			"Title":    "Edit Delivery Sales",
 			"Active":   "sales",
 			"Delivery": delivery,
@@ -421,27 +458,29 @@ func (h *Handler) DeliverySave(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ExpensesList(w http.ResponseWriter, r *http.Request) {
 	vendorID, _ := strconv.ParseInt(r.URL.Query().Get("vendor_id"), 10, 64)
 	filter := models.ExpenseFilter{
-		StartDate: r.URL.Query().Get("start_date"),
-		EndDate:   r.URL.Query().Get("end_date"),
-		Status:    r.URL.Query().Get("status"),
-		VendorID:  vendorID,
+		StartDate:  r.URL.Query().Get("start_date"),
+		EndDate:    r.URL.Query().Get("end_date"),
+		Status:     r.URL.Query().Get("status"),
+		VendorID:   vendorID,
+		Categories: r.URL.Query()["category"],
 	}
 	expenses, total, _ := h.db.ListExpenses(filter)
 	vendors, _ := h.db.ListVendors()
-	h.render(w, "expenses_list.html", map[string]interface{}{
-		"Title":    "Expenses",
-		"Active":   "expenses",
-		"Expenses": expenses,
-		"Total":    total,
-		"Vendors":  vendors,
-		"Filter":   filter,
+	h.render(w, r, "expenses_list.html", map[string]interface{}{
+		"Title":      "Expenses",
+		"Active":     "expenses",
+		"Expenses":   expenses,
+		"Total":      total,
+		"Vendors":    vendors,
+		"Filter":     filter,
+		"Categories": models.VendorCategories,
 	})
 }
 
 func (h *Handler) ExpensesNew(w http.ResponseWriter, r *http.Request) {
 	vendors, _ := h.db.ListVendors()
 	lastCheck, _ := h.db.GetLastExpenseCheckNumber()
-	h.render(w, "expenses_form.html", map[string]interface{}{
+	h.render(w, r, "expenses_form.html", map[string]interface{}{
 		"Title":           "New Expense",
 		"Active":          "expenses",
 		"Expense":         models.Expense{Date: time.Now().Format("2006-01-02")},
@@ -451,6 +490,13 @@ func (h *Handler) ExpensesNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ExpensesCreate(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	// Parse multipart form for file upload (5MB limit)
+	if err := r.ParseMultipartForm(5 << 20); err != nil {
+		l.Error("expense_parse_form_error", "error", err.Error())
+	}
+
 	vendorID, _ := strconv.ParseInt(r.FormValue("vendor_id"), 10, 64)
 	amount, _ := strconv.ParseFloat(r.FormValue("amount"), 64)
 
@@ -463,15 +509,32 @@ func (h *Handler) ExpensesCreate(w http.ResponseWriter, r *http.Request) {
 		PaymentType:   r.FormValue("payment_type"),
 		CheckNumber:   r.FormValue("check_number"),
 		DateOpened:    r.FormValue("date_opened"),
+		DueDate:       r.FormValue("due_date"),
 		DatePaid:      r.FormValue("date_paid"),
 		Notes:         r.FormValue("notes"),
 	}
 
-	_, err := h.db.CreateExpense(expense)
+	// Handle receipt file upload
+	file, header, err := r.FormFile("receipt")
+	if err == nil {
+		defer file.Close()
+		storedPath, err := h.files.Save(header.Filename, file)
+		if err != nil {
+			l.Error("expense_receipt_save_error", "error", err.Error())
+		} else {
+			expense.ReceiptPath = storedPath
+		}
+	}
+
+	_, err = h.db.CreateExpense(expense)
 	if err != nil {
+		// Clean up uploaded file on error
+		if expense.ReceiptPath != "" {
+			h.files.Delete(expense.ReceiptPath)
+		}
 		vendors, _ := h.db.ListVendors()
 		lastCheck, _ := h.db.GetLastExpenseCheckNumber()
-		h.render(w, "expenses_form.html", map[string]interface{}{
+		h.render(w, r, "expenses_form.html", map[string]interface{}{
 			"Title":           "New Expense",
 			"Active":          "expenses",
 			"Expense":         expense,
@@ -493,7 +556,7 @@ func (h *Handler) ExpensesEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	vendors, _ := h.db.ListVendors()
 	lastCheck, _ := h.db.GetLastExpenseCheckNumber()
-	h.render(w, "expenses_form.html", map[string]interface{}{
+	h.render(w, r, "expenses_form.html", map[string]interface{}{
 		"Title":           "Edit Expense",
 		"Active":          "expenses",
 		"Expense":         expense,
@@ -503,9 +566,19 @@ func (h *Handler) ExpensesEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ExpensesUpdate(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	// Parse multipart form for file upload (5MB limit)
+	if err := r.ParseMultipartForm(5 << 20); err != nil {
+		l.Error("expense_parse_form_error", "error", err.Error())
+	}
+
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	vendorID, _ := strconv.ParseInt(r.FormValue("vendor_id"), 10, 64)
 	amount, _ := strconv.ParseFloat(r.FormValue("amount"), 64)
+
+	// Get existing receipt path to preserve if no new file uploaded
+	oldReceiptPath, _ := h.db.GetExpenseReceiptPath(id)
 
 	expense := models.Expense{
 		ID:            id,
@@ -517,15 +590,35 @@ func (h *Handler) ExpensesUpdate(w http.ResponseWriter, r *http.Request) {
 		PaymentType:   r.FormValue("payment_type"),
 		CheckNumber:   r.FormValue("check_number"),
 		DateOpened:    r.FormValue("date_opened"),
+		DueDate:       r.FormValue("due_date"),
 		DatePaid:      r.FormValue("date_paid"),
 		Notes:         r.FormValue("notes"),
+		ReceiptPath:   oldReceiptPath, // Preserve existing receipt by default
 	}
 
-	err := h.db.UpdateExpense(expense)
+	// Handle new receipt file upload
+	var newReceiptPath string
+	file, header, err := r.FormFile("receipt")
+	if err == nil {
+		defer file.Close()
+		storedPath, err := h.files.Save(header.Filename, file)
+		if err != nil {
+			l.Error("expense_receipt_save_error", "error", err.Error())
+		} else {
+			newReceiptPath = storedPath
+			expense.ReceiptPath = storedPath
+		}
+	}
+
+	err = h.db.UpdateExpense(expense)
 	if err != nil {
+		// Clean up newly uploaded file on error
+		if newReceiptPath != "" {
+			h.files.Delete(newReceiptPath)
+		}
 		vendors, _ := h.db.ListVendors()
 		lastCheck, _ := h.db.GetLastExpenseCheckNumber()
-		h.render(w, "expenses_form.html", map[string]interface{}{
+		h.render(w, r, "expenses_form.html", map[string]interface{}{
 			"Title":           "Edit Expense",
 			"Active":          "expenses",
 			"Expense":         expense,
@@ -535,51 +628,299 @@ func (h *Handler) ExpensesUpdate(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	// Delete old receipt file if a new one was uploaded successfully
+	if newReceiptPath != "" && oldReceiptPath != "" && oldReceiptPath != newReceiptPath {
+		h.files.Delete(oldReceiptPath)
+	}
+
 	http.Redirect(w, r, "/expenses", http.StatusFound)
+}
+
+func (h *Handler) ExpensesPayForm(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	expense, err := h.db.GetExpense(id)
+	if err != nil {
+		http.Redirect(w, r, "/expenses", http.StatusFound)
+		return
+	}
+	lastCheck, _ := h.db.GetLastExpenseCheckNumber()
+	h.render(w, r, "expenses_pay.html", map[string]interface{}{
+		"Title":           "Mark Expense Paid",
+		"Active":          "expenses",
+		"Expense":         expense,
+		"LastCheckNumber": lastCheck,
+	})
 }
 
 func (h *Handler) ExpensesPay(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	h.db.MarkExpensePaid(id)
-	referer := r.Header.Get("Referer")
-	if referer != "" && referer == "/" {
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
-	}
+	paymentType := r.FormValue("payment_type")
+	checkNumber := r.FormValue("check_number")
+	h.db.MarkExpensePaid(id, paymentType, checkNumber)
 	http.Redirect(w, r, "/expenses", http.StatusFound)
 }
 
 func (h *Handler) ExpensesDelete(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	// Delete receipt file if exists
+	if receiptPath, err := h.db.GetExpenseReceiptPath(id); err == nil && receiptPath != "" {
+		h.files.Delete(receiptPath)
+	}
 	h.db.DeleteExpense(id)
 	http.Redirect(w, r, "/expenses", http.StatusFound)
 }
 
-// Payroll handlers
-func (h *Handler) PayrollList(w http.ResponseWriter, r *http.Request) {
-	employeeID, _ := strconv.ParseInt(r.URL.Query().Get("employee_id"), 10, 64)
-	filter := models.PayrollFilter{
-		StartDate:  r.URL.Query().Get("start_date"),
-		EndDate:    r.URL.Query().Get("end_date"),
-		Status:     r.URL.Query().Get("status"),
-		EmployeeID: employeeID,
+// ExpensesDownloadReceipt serves the receipt file for an expense
+func (h *Handler) ExpensesDownloadReceipt(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	receiptPath, err := h.db.GetExpenseReceiptPath(id)
+	if err != nil || receiptPath == "" {
+		http.Error(w, "Receipt not found", http.StatusNotFound)
+		return
 	}
-	payrolls, total, _ := h.db.ListPayroll(filter)
-	employees, _ := h.db.ListEmployees(true)
-	h.render(w, "payroll_list.html", map[string]interface{}{
-		"Title":     "Payroll",
-		"Active":    "payroll",
-		"Payrolls":  payrolls,
-		"Total":     total,
-		"Employees": employees,
-		"Filter":    filter,
+
+	file, err := h.files.Get(receiptPath)
+	if err != nil {
+		http.Error(w, "Receipt file not found", http.StatusNotFound)
+		return
+	}
+	defer file.Close()
+
+	// Determine content type from extension
+	contentType := "application/octet-stream"
+	ext := strings.ToLower(filepath.Ext(receiptPath))
+	switch ext {
+	case ".pdf":
+		contentType = "application/pdf"
+	case ".jpg", ".jpeg":
+		contentType = "image/jpeg"
+	case ".png":
+		contentType = "image/png"
+	case ".gif":
+		contentType = "image/gif"
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=\"receipt%s\"", ext))
+	io.Copy(w, file)
+}
+
+// ExpensesUploadReceipt handles quick receipt upload from list page
+func (h *Handler) ExpensesUploadReceipt(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+
+	// Parse multipart form (5MB limit)
+	if err := r.ParseMultipartForm(5 << 20); err != nil {
+		l.Error("receipt_upload_parse_error", "error", err.Error())
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("receipt")
+	if err != nil {
+		http.Error(w, "No file provided", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Get old receipt path for cleanup
+	oldReceiptPath, _ := h.db.GetExpenseReceiptPath(id)
+
+	// Save new file
+	storedPath, err := h.files.Save(header.Filename, file)
+	if err != nil {
+		l.Error("receipt_upload_save_error", "error", err.Error())
+		http.Error(w, "Failed to save file", http.StatusInternalServerError)
+		return
+	}
+
+	// Update database
+	if err := h.db.UpdateExpenseReceipt(id, storedPath); err != nil {
+		h.files.Delete(storedPath) // Clean up on error
+		l.Error("receipt_upload_db_error", "error", err.Error())
+		http.Error(w, "Failed to update expense", http.StatusInternalServerError)
+		return
+	}
+
+	// Delete old file after successful update
+	if oldReceiptPath != "" {
+		h.files.Delete(oldReceiptPath)
+	}
+
+	l.Info("receipt_uploaded", "expense_id", id)
+	http.Redirect(w, r, "/expenses", http.StatusFound)
+}
+
+// ExpensesDeleteReceipt removes the receipt from an expense
+func (h *Handler) ExpensesDeleteReceipt(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+
+	receiptPath, err := h.db.GetExpenseReceiptPath(id)
+	if err != nil || receiptPath == "" {
+		http.Redirect(w, r, fmt.Sprintf("/expenses/%d/edit", id), http.StatusFound)
+		return
+	}
+
+	// Clear receipt path in database
+	if err := h.db.UpdateExpenseReceipt(id, ""); err != nil {
+		l.Error("receipt_delete_db_error", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/expenses/%d/edit", id), http.StatusFound)
+		return
+	}
+
+	// Delete the file
+	h.files.Delete(receiptPath)
+	l.Info("receipt_deleted", "expense_id", id)
+	http.Redirect(w, r, fmt.Sprintf("/expenses/%d/edit", id), http.StatusFound)
+}
+
+// Payroll handlers
+
+// getWeekBounds calculates the Monday and Sunday for a given date
+func getWeekBounds(date time.Time) (string, string) {
+	// Find Monday of the week
+	weekday := int(date.Weekday())
+	if weekday == 0 {
+		weekday = 7 // Sunday = 7
+	}
+	monday := date.AddDate(0, 0, -(weekday - 1))
+	sunday := monday.AddDate(0, 0, 6)
+	return monday.Format("2006-01-02"), sunday.Format("2006-01-02")
+}
+
+func (h *Handler) PayrollList(w http.ResponseWriter, r *http.Request) {
+	weeks, err := h.db.ListPayrollWeeks(50)
+	if err != nil {
+		logger.FromContext(r.Context()).Error("payroll_weeks_error", "error", err.Error())
+	}
+
+	h.render(w, r, "payroll_list.html", map[string]any{
+		"Title":  "Payroll",
+		"Active": "payroll",
+		"Weeks":  weeks,
+	})
+}
+
+func (h *Handler) PayrollWeekNew(w http.ResponseWriter, r *http.Request) {
+	// Default to current week
+	weekStart, weekEnd := getWeekBounds(time.Now())
+
+	entries, total, _ := h.db.GetWeeklyPayroll(weekStart, weekEnd)
+	lastCheck, _ := h.db.GetLastPayrollCheckNumber()
+
+	// Format dates for display
+	weekStartDate, _ := time.Parse("2006-01-02", weekStart)
+	weekEndDate, _ := time.Parse("2006-01-02", weekEnd)
+	weekStartDisplay := weekStartDate.Format("Jan 2")
+	weekEndDisplay := weekEndDate.Format("Jan 2, 2006")
+
+	h.render(w, r, "payroll_week_edit.html", map[string]any{
+		"Title":           "New Payroll Week",
+		"Active":          "payroll",
+		"Entries":         entries,
+		"Total":           total,
+		"WeekStart":       weekStart,
+		"WeekEnd":         weekEnd,
+		"WeekDisplay":     weekStartDisplay + " - " + weekEndDisplay,
+		"LastCheckNumber": lastCheck,
+	})
+}
+
+func (h *Handler) PayrollWeekEdit(w http.ResponseWriter, r *http.Request) {
+	weekIDStr := r.PathValue("id")
+	weekID, err := strconv.ParseInt(weekIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid week ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get the week details
+	week, err := h.db.GetPayrollWeek(weekID)
+	if err != nil {
+		http.Error(w, "Week not found", http.StatusNotFound)
+		return
+	}
+
+	entries, total, _ := h.db.GetWeeklyPayrollByWeekID(weekID)
+	lastCheck, _ := h.db.GetLastPayrollCheckNumber()
+
+	// Format dates for display
+	weekStartDate, _ := time.Parse("2006-01-02", week.PeriodStart)
+	weekEndDate, _ := time.Parse("2006-01-02", week.PeriodEnd)
+	weekStartDisplay := weekStartDate.Format("Jan 2")
+	weekEndDisplay := weekEndDate.Format("Jan 2, 2006")
+
+	h.render(w, r, "payroll_week_edit.html", map[string]any{
+		"Title":           "Edit Payroll - " + weekEndDisplay,
+		"Active":          "payroll",
+		"Entries":         entries,
+		"Total":           total,
+		"WeekID":          weekID,
+		"WeekStart":       week.PeriodStart,
+		"WeekEnd":         week.PeriodEnd,
+		"WeekDisplay":     weekStartDisplay + " - " + weekEndDisplay,
+		"LastCheckNumber": lastCheck,
+	})
+}
+
+func (h *Handler) PayrollWeekDetail(w http.ResponseWriter, r *http.Request) {
+	weekIDStr := r.PathValue("id")
+	weekID, err := strconv.ParseInt(weekIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid week ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get the week details
+	week, err := h.db.GetPayrollWeek(weekID)
+	if err != nil {
+		http.Error(w, "Week not found", http.StatusNotFound)
+		return
+	}
+
+	entries, total, _ := h.db.GetWeeklyPayrollByWeekID(weekID)
+	lastCheck, _ := h.db.GetLastPayrollCheckNumber()
+
+	// Format dates for display (handle both "2006-01-02" and "2006-01-02T15:04:05Z" formats)
+	weekStartDate, err := time.Parse("2006-01-02", week.PeriodStart)
+	if err != nil {
+		weekStartDate, err = time.Parse(time.RFC3339, week.PeriodStart)
+		if err != nil {
+			http.Error(w, "Invalid period start date: "+week.PeriodStart, http.StatusInternalServerError)
+			return
+		}
+	}
+	weekEndDate, err := time.Parse("2006-01-02", week.PeriodEnd)
+	if err != nil {
+		weekEndDate, err = time.Parse(time.RFC3339, week.PeriodEnd)
+		if err != nil {
+			http.Error(w, "Invalid period end date: "+week.PeriodEnd, http.StatusInternalServerError)
+			return
+		}
+	}
+	weekStartDisplay := weekStartDate.Format("Jan 2")
+	weekEndDisplay := weekEndDate.Format("Jan 2, 2006")
+
+	h.render(w, r, "payroll_detail.html", map[string]interface{}{
+		"Title":           "Payroll - " + weekStartDisplay + " to " + weekEndDisplay,
+		"Active":          "payroll",
+		"Entries":         entries,
+		"Total":           total,
+		"WeekID":          weekID,
+		"WeekStart":       week.PeriodStart,
+		"WeekEnd":         week.PeriodEnd,
+		"WeekDisplay":     weekStartDisplay + " - " + weekEndDisplay,
+		"LastCheckNumber": lastCheck,
 	})
 }
 
 func (h *Handler) PayrollNew(w http.ResponseWriter, r *http.Request) {
 	employees, _ := h.db.ListEmployees(true)
 	lastCheck, _ := h.db.GetLastPayrollCheckNumber()
-	h.render(w, "payroll_form.html", map[string]interface{}{
+	h.render(w, r, "payroll_form.html", map[string]interface{}{
 		"Title":           "New Payroll",
 		"Active":          "payroll",
 		"Payroll":         models.Payroll{},
@@ -610,7 +951,7 @@ func (h *Handler) PayrollCreate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		employees, _ := h.db.ListEmployees(true)
 		lastCheck, _ := h.db.GetLastPayrollCheckNumber()
-		h.render(w, "payroll_form.html", map[string]interface{}{
+		h.render(w, r, "payroll_form.html", map[string]interface{}{
 			"Title":           "New Payroll",
 			"Active":          "payroll",
 			"Payroll":         payroll,
@@ -632,7 +973,7 @@ func (h *Handler) PayrollEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	employees, _ := h.db.ListEmployees(true)
 	lastCheck, _ := h.db.GetLastPayrollCheckNumber()
-	h.render(w, "payroll_form.html", map[string]interface{}{
+	h.render(w, r, "payroll_form.html", map[string]interface{}{
 		"Title":           "Edit Payroll",
 		"Active":          "payroll",
 		"Payroll":         payroll,
@@ -665,7 +1006,7 @@ func (h *Handler) PayrollUpdate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		employees, _ := h.db.ListEmployees(true)
 		lastCheck, _ := h.db.GetLastPayrollCheckNumber()
-		h.render(w, "payroll_form.html", map[string]interface{}{
+		h.render(w, r, "payroll_form.html", map[string]interface{}{
 			"Title":           "Edit Payroll",
 			"Active":          "payroll",
 			"Payroll":         payroll,
@@ -680,17 +1021,584 @@ func (h *Handler) PayrollUpdate(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) PayrollPay(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	h.db.MarkPayrollPaid(id)
-	referer := r.Header.Get("Referer")
-	if referer != "" && referer == "/" {
-		http.Redirect(w, r, "/", http.StatusFound)
+	paymentMethod := r.FormValue("payment_method")
+	checkNumber := r.FormValue("check_number")
+	week := r.FormValue("week")
+
+	h.db.MarkPayrollPaidWithDetails(id, paymentMethod, checkNumber)
+
+	if week != "" {
+		http.Redirect(w, r, "/payroll?week="+week, http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, "/payroll", http.StatusFound)
 }
 
+func (h *Handler) PayrollSaveHours(w http.ResponseWriter, r *http.Request) {
+	weekStart := r.FormValue("week_start")
+	weekEnd := r.FormValue("week_end")
+
+	// Get all active employees to process their hours
+	employees, _ := h.db.ListEmployees(true)
+	for _, emp := range employees {
+		hoursStr := r.FormValue(fmt.Sprintf("hours_%d", emp.ID))
+		hours, _ := strconv.ParseFloat(hoursStr, 64)
+		if hours > 0 {
+			h.db.UpsertWeeklyPayroll(emp.ID, weekStart, weekEnd, hours, emp.HourlyRate, emp.PaymentMethod)
+		}
+	}
+
+	http.Redirect(w, r, "/payroll", http.StatusFound)
+}
+
 func (h *Handler) PayrollDelete(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	week := r.FormValue("week")
 	h.db.DeletePayroll(id)
+	if week != "" {
+		http.Redirect(w, r, "/payroll?week="+week, http.StatusFound)
+		return
+	}
 	http.Redirect(w, r, "/payroll", http.StatusFound)
+}
+
+// Reconciliations handlers
+
+func (h *Handler) ReconciliationsList(w http.ResponseWriter, r *http.Request) {
+	reconciliations, err := h.db.ListReconciliations()
+	if err != nil {
+		logger.FromContext(r.Context()).Error("reconciliations_list_error", "error", err.Error())
+	}
+
+	// Get months that already have reconciliations
+	reconciledMonths, err := h.db.GetReconciledMonths()
+	if err != nil {
+		logger.FromContext(r.Context()).Error("reconciled_months_error", "error", err.Error())
+		reconciledMonths = make(map[string]bool)
+	}
+
+	// Generate available months (last 12 months, excluding already reconciled)
+	availableMonths := []models.MonthOption{}
+	now := time.Now()
+	// Start from previous month
+	current := time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, time.Local)
+
+	for i := 0; i < 12; i++ {
+		monthValue := current.Format("2006-01")
+		if !reconciledMonths[monthValue] {
+			availableMonths = append(availableMonths, models.MonthOption{
+				Value:    monthValue,
+				Label:    current.Format("January 2006"),
+				Selected: len(availableMonths) == 0, // Select first available
+			})
+		}
+		current = current.AddDate(0, -1, 0)
+	}
+
+	h.render(w, r, "reconciliations_list.html", map[string]any{
+		"Title":           "Bank Statements",
+		"Active":          "expenses",
+		"Reconciliations": reconciliations,
+		"AvailableMonths": availableMonths,
+	})
+}
+
+func (h *Handler) ReconciliationsUpload(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	// Parse multipart form (max 10MB)
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		l.Error("reconciliation_upload_parse_error", "error", err.Error())
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	// Get selected month (YYYY-MM format)
+	statementMonth := r.FormValue("statement_month")
+	if statementMonth == "" {
+		http.Error(w, "Statement month is required", http.StatusBadRequest)
+		return
+	}
+
+	// Parse month to get last day of month for statement date
+	monthTime, err := time.Parse("2006-01", statementMonth)
+	if err != nil {
+		l.Error("reconciliation_upload_month_parse", "error", err.Error())
+		http.Error(w, "Invalid month format", http.StatusBadRequest)
+		return
+	}
+	// Get last day of the month
+	statementDate := monthTime.AddDate(0, 1, -1).Format("2006-01-02")
+
+	// Get uploaded file
+	file, header, err := r.FormFile("statement_file")
+	if err != nil {
+		l.Error("reconciliation_upload_file_error", "error", err.Error())
+		http.Error(w, "Failed to get uploaded file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	l.Info("reconciliation_upload", "month", statementMonth, "filename", header.Filename, "size", header.Size)
+
+	// Save file to filestore
+	filePath, err := h.files.Save(header.Filename, file)
+	if err != nil {
+		l.Error("reconciliation_file_save_error", "error", err.Error())
+		http.Error(w, "Failed to save uploaded file", http.StatusInternalServerError)
+		return
+	}
+
+	// Create reconciliation record
+	recon := models.BankReconciliation{
+		StatementDate:   statementDate,
+		StartingBalance: 0,
+		EndingBalance:   0,
+		Status:          "pending",
+		FilePath:        filePath,
+		Notes:           fmt.Sprintf("Uploaded: %s", header.Filename),
+	}
+
+	reconID, err := h.db.CreateReconciliation(recon)
+	if err != nil {
+		// Clean up saved file on error
+		h.files.Delete(filePath)
+		l.Error("reconciliation_create_error", "error", err.Error())
+		http.Error(w, "Failed to create reconciliation", http.StatusInternalServerError)
+		return
+	}
+
+	// Queue parse job
+	jobPayload := map[string]any{
+		"reconciliation_id": reconID,
+		"file_path":         filePath,
+	}
+	jobID, err := h.db.CreateJob("parse_statement", jobPayload)
+	if err != nil {
+		l.Error("reconciliation_job_create_error", "error", err.Error())
+		http.Error(w, "Failed to queue parse job", http.StatusInternalServerError)
+		return
+	}
+
+	// Update reconciliation with job ID
+	if err := h.db.UpdateReconciliationParseJob(reconID, jobID); err != nil {
+		l.Error("reconciliation_update_job_error", "error", err.Error())
+	}
+
+	l.Info("reconciliation_job_queued", "reconciliation_id", reconID, "job_id", jobID)
+
+	// Return JSON response for frontend polling
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"reconciliation_id": reconID,
+		"job_id":            jobID,
+	})
+}
+
+// ReconciliationsComplete marks a reconciliation as completed
+func (h *Handler) ReconciliationsComplete(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	if err := h.db.UpdateReconciliationStatus(id, "completed"); err != nil {
+		l.Error("reconciliation_complete_error", "id", id, "error", err.Error())
+	} else {
+		l.Info("reconciliation_completed", "id", id)
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", id), http.StatusFound)
+}
+
+// ReconciliationsReparse queues a new parse job for an existing reconciliation
+func (h *Handler) ReconciliationsReparse(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	recon, err := h.db.GetReconciliation(id)
+	if err != nil {
+		l.Error("reconciliation_reparse_get_error", "id", id, "error", err.Error())
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	// Reset status to pending
+	if err := h.db.UpdateReconciliationStatus(id, "pending"); err != nil {
+		l.Error("reconciliation_reparse_status_error", "id", id, "error", err.Error())
+	}
+
+	// Queue new parse job
+	jobPayload := map[string]any{
+		"reconciliation_id": id,
+		"file_path":         recon.FilePath,
+	}
+	jobID, err := h.db.CreateJob("parse_statement", jobPayload)
+	if err != nil {
+		l.Error("reconciliation_reparse_job_error", "id", id, "error", err.Error())
+		http.Error(w, "Failed to queue parse job", http.StatusInternalServerError)
+		return
+	}
+
+	// Update reconciliation with new job ID
+	if err := h.db.UpdateReconciliationParseJob(id, jobID); err != nil {
+		l.Error("reconciliation_reparse_update_error", "id", id, "error", err.Error())
+	}
+
+	l.Info("reconciliation_reparse_queued", "reconciliation_id", id, "job_id", jobID)
+
+	http.Redirect(w, r, "/bank-statements", http.StatusFound)
+}
+
+// ReconciliationsDelete deletes a bank statement and all its transactions
+func (h *Handler) ReconciliationsDelete(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	// Get the reconciliation to find the file path
+	recon, err := h.db.GetReconciliation(id)
+	if err != nil {
+		l.Error("reconciliation_delete_get_error", "id", id, "error", err.Error())
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	// Delete the PDF file
+	if recon.FilePath != "" {
+		h.files.Delete(recon.FilePath)
+	}
+
+	// Delete all bank transactions for this reconciliation
+	if err := h.db.DeleteBankTransactions(id); err != nil {
+		l.Error("reconciliation_delete_txns_error", "id", id, "error", err.Error())
+	}
+
+	// Delete the reconciliation record
+	if err := h.db.DeleteReconciliation(id); err != nil {
+		l.Error("reconciliation_delete_error", "id", id, "error", err.Error())
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	l.Info("reconciliation_deleted", "id", id)
+	http.Redirect(w, r, "/bank-statements", http.StatusFound)
+}
+
+// ReconciliationsReview shows the reconciliation review page
+func (h *Handler) ReconciliationsReview(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	recon, err := h.db.GetReconciliation(id)
+	if err != nil {
+		l.Error("reconciliation_get_error", "id", id, "error", err.Error())
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	transactions, err := h.db.GetBankTransactions(id)
+	if err != nil {
+		l.Error("reconciliation_transactions_error", "id", id, "error", err.Error())
+	}
+
+	stats, err := h.db.GetReconciliationStats(id)
+	if err != nil {
+		l.Error("reconciliation_stats_error", "id", id, "error", err.Error())
+	}
+
+	// Get expenses for matching (paid expenses from around the statement period)
+	vendors, _ := h.db.ListVendors()
+	expenses, _, _ := h.db.ListExpenses(models.ExpenseFilter{Status: "paid"})
+
+	h.render(w, r, "reconciliation_edit.html", map[string]any{
+		"Title":          "Review Reconciliation",
+		"Active":         "expenses",
+		"Reconciliation": recon,
+		"Transactions":   transactions,
+		"Stats":          stats,
+		"Expenses":       expenses,
+		"Vendors":        vendors,
+	})
+}
+
+// ReconciliationsMatch manually matches a bank transaction to an expense
+func (h *Handler) ReconciliationsMatch(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	reconID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
+	if err != nil {
+		l.Error("match_invalid_txn_id", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+		return
+	}
+
+	expenseID, err := strconv.ParseInt(r.FormValue("expense_id"), 10, 64)
+	if err != nil {
+		l.Error("match_invalid_expense_id", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+		return
+	}
+
+	if err := h.db.MatchBankTransaction(txnID, expenseID, "manual"); err != nil {
+		l.Error("match_error", "txn_id", txnID, "expense_id", expenseID, "error", err.Error())
+	} else {
+		l.Info("transaction_matched", "txn_id", txnID, "expense_id", expenseID)
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+}
+
+// ReconciliationsUnmatch removes a match from a bank transaction
+func (h *Handler) ReconciliationsUnmatch(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	reconID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
+	if err != nil {
+		l.Error("unmatch_invalid_txn_id", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+		return
+	}
+
+	// Get the transaction to check if it was a "created" expense
+	txn, err := h.db.GetBankTransaction(txnID)
+	if err != nil {
+		l.Error("unmatch_get_txn_error", "txn_id", txnID, "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+		return
+	}
+
+	// If this was a created expense, delete it
+	if txn.MatchStatus == "created" && txn.MatchedExpenseID != nil {
+		if err := h.db.DeleteExpense(*txn.MatchedExpenseID); err != nil {
+			l.Error("unmatch_delete_expense_error", "expense_id", *txn.MatchedExpenseID, "error", err.Error())
+		} else {
+			l.Info("created_expense_deleted", "txn_id", txnID, "expense_id", *txn.MatchedExpenseID)
+		}
+	}
+
+	if err := h.db.UnmatchBankTransaction(txnID); err != nil {
+		l.Error("unmatch_error", "txn_id", txnID, "error", err.Error())
+	} else {
+		l.Info("transaction_unmatched", "txn_id", txnID)
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+}
+
+// ReconciliationsIgnore marks a bank transaction as ignored
+func (h *Handler) ReconciliationsIgnore(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	reconID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
+	if err != nil {
+		l.Error("ignore_invalid_txn_id", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+		return
+	}
+
+	reason := r.FormValue("reason")
+	if reason == "" {
+		reason = "Manually ignored"
+	}
+
+	if err := h.db.IgnoreBankTransaction(txnID, reason); err != nil {
+		l.Error("ignore_error", "txn_id", txnID, "error", err.Error())
+	} else {
+		l.Info("transaction_ignored", "txn_id", txnID, "reason", reason)
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+}
+
+// ReconciliationsCreateExpense creates a new expense from a bank transaction
+func (h *Handler) ReconciliationsCreateExpense(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	// Parse multipart form for file upload (5MB limit)
+	if err := r.ParseMultipartForm(5 << 20); err != nil {
+		l.Error("create_expense_parse_form_error", "error", err.Error())
+	}
+
+	reconID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
+	if err != nil {
+		l.Error("create_expense_invalid_txn_id", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+		return
+	}
+
+	vendorID, err := strconv.ParseInt(r.FormValue("vendor_id"), 10, 64)
+	if err != nil {
+		l.Error("create_expense_invalid_vendor_id", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+		return
+	}
+
+	// Get the bank transaction
+	txn, err := h.db.GetBankTransaction(txnID)
+	if err != nil {
+		l.Error("create_expense_get_txn_error", "txn_id", txnID, "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+		return
+	}
+
+	// Create the expense (amount is negative in bank txn, so we use absolute value)
+	amount := txn.Amount
+	if amount < 0 {
+		amount = -amount
+	}
+
+	// Map bank transaction type to expense payment type
+	paymentType := ""
+	switch txn.TransactionType {
+	case "check":
+		paymentType = "check"
+	case "debit", "ach", "electronic":
+		paymentType = "debit"
+	case "credit":
+		paymentType = "credit"
+	default:
+		paymentType = "debit" // default for unknown types
+	}
+
+	expense := models.Expense{
+		Date:        txn.PostingDate,
+		VendorID:    vendorID,
+		Amount:      amount,
+		Status:      "paid",
+		PaymentType: paymentType,
+		CheckNumber: txn.CheckNumber,
+		DatePaid:    txn.PostingDate,
+		Notes:       fmt.Sprintf("Created from bank statement: %s", txn.Description),
+	}
+
+	// Handle receipt file upload
+	file, header, fileErr := r.FormFile("receipt")
+	if fileErr == nil {
+		defer file.Close()
+		storedPath, saveErr := h.files.Save(header.Filename, file)
+		if saveErr != nil {
+			l.Error("create_expense_receipt_save_error", "error", saveErr.Error())
+		} else {
+			expense.ReceiptPath = storedPath
+		}
+	}
+
+	expenseID, err := h.db.CreateExpense(expense)
+	if err != nil {
+		// Clean up uploaded file on error
+		if expense.ReceiptPath != "" {
+			h.files.Delete(expense.ReceiptPath)
+		}
+		l.Error("create_expense_error", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+		return
+	}
+
+	// Mark the transaction as created and link it
+	if err := h.db.MarkBankTransactionCreated(txnID, expenseID); err != nil {
+		l.Error("mark_txn_created_error", "txn_id", txnID, "expense_id", expenseID, "error", err.Error())
+	} else {
+		l.Info("expense_created_from_txn", "txn_id", txnID, "expense_id", expenseID)
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+}
+
+// ReconciliationsUpdateType updates the transaction type for a bank transaction
+func (h *Handler) ReconciliationsUpdateType(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	reconID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	txnID, err := strconv.ParseInt(r.FormValue("transaction_id"), 10, 64)
+	if err != nil {
+		l.Error("update_type_invalid_txn_id", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+		return
+	}
+
+	txnType := r.FormValue("transaction_type")
+
+	// Determine if amount should be positive or negative based on type
+	// Credits (positive): deposit, ach, refund
+	// Debits (negative): check, debit, transfer, fee, other
+	shouldBePositive := txnType == "deposit" || txnType == "ach" || txnType == "refund"
+
+	if err := h.db.UpdateBankTransactionTypeAndSign(txnID, txnType, shouldBePositive); err != nil {
+		l.Error("update_type_error", "txn_id", txnID, "error", err.Error())
+	} else {
+		l.Info("transaction_type_updated", "txn_id", txnID, "type", txnType)
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
+}
+
+// JobStatus returns the status of a background job as JSON (for polling)
+func (h *Handler) JobStatus(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid job ID", http.StatusBadRequest)
+		return
+	}
+
+	job, err := h.db.GetJob(id)
+	if err != nil {
+		http.Error(w, "Job not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"id":       job.ID,
+		"status":   job.Status,
+		"progress": job.Progress,
+		"result":   job.Result,
+	})
 }

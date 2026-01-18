@@ -1,4 +1,4 @@
-.PHONY: build run dev watch docker-up docker-down backup clean seed
+.PHONY: build run dev watch docker-up docker-down backup clean seed repopulate
 
 # Build the binary
 build:
@@ -51,8 +51,24 @@ deps:
 # Seed the database with sample data
 seed:
 	@if [ -f ./data/homebooks.db ]; then \
+		sqlite3 ./data/homebooks.db < scripts/seed_vendors_expenses.sql; \
 		sqlite3 ./data/homebooks.db < scripts/seed_sales.sql; \
 		echo "Seed data loaded successfully"; \
 	else \
 		echo "No database found. Run 'make dev' first to create the database, then run 'make seed'"; \
 	fi
+
+# Clean, initialize database, and seed with sample data
+repopulate:
+	@echo "Cleaning..."
+	@rm -f homebooks
+	@rm -rf data/
+	@echo "Starting server to initialize database..."
+	@go run ./cmd/server & SERVER_PID=$$!; \
+		sleep 2; \
+		echo "Seeding database..."; \
+		sqlite3 ./data/homebooks.db < scripts/seed_vendors_expenses.sql; \
+		sqlite3 ./data/homebooks.db < scripts/seed_sales.sql; \
+		echo "Stopping server..."; \
+		kill $$SERVER_PID 2>/dev/null; \
+		echo "Done! Database repopulated with seed data."

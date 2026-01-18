@@ -2,21 +2,22 @@
 <h1>Dashboard</h1>
 
 <div class="summary-cards">
-	<div class="summary-card {{if gt .Data.UnpaidExpensesCount 0}}warning{{end}}">
-		<div class="label">Unpaid Expenses</div>
-		<div class="value">${{printf "%.2f" .Data.UnpaidExpensesTotal}}</div>
-		<div class="label">{{.Data.UnpaidExpensesCount}} item(s)</div>
+	<div class="summary-card">
+		<div class="label">Today's Sales</div>
+		<div class="value">${{printf "%.2f" .Data.TodaySalesTotal}}</div>
 	</div>
-	<div class="summary-card {{if gt .Data.UnpaidPayrollCount 0}}warning{{end}}">
-		<div class="label">Unpaid Payroll</div>
-		<div class="value">${{printf "%.2f" .Data.UnpaidPayrollTotal}}</div>
-		<div class="label">{{.Data.UnpaidPayrollCount}} item(s)</div>
+	<div class="summary-card">
+		<div class="label">Today's Receipts</div>
+		<div class="value">${{printf "%.2f" .Data.TodayExpensesTotal}}</div>
 	</div>
 </div>
 
 {{if .Data.UnpaidExpenses}}
 <div class="card">
-	<h2 class="card-title">Unpaid Expenses</h2>
+	<div class="card-header-row">
+		<h2 class="card-title">Unpaid Receipts</h2>
+		<span class="card-total">${{printf "%.2f" .Data.UnpaidExpensesTotal}}</span>
+	</div>
 	<table>
 		<thead>
 			<tr>
@@ -33,41 +34,8 @@
 				<td>{{.VendorName}}</td>
 				<td class="money">${{printf "%.2f" .Amount}}</td>
 				<td class="actions">
-					<form action="/expenses/{{.ID}}/pay" method="POST" style="display:inline">
-						<button type="submit" class="btn btn-success btn-small">Mark Paid</button>
-					</form>
+					<a href="/expenses/{{.ID}}/pay" class="btn btn-success btn-small">Mark Paid</a>
 					<a href="/expenses/{{.ID}}/edit" class="btn btn-secondary btn-small">Edit</a>
-				</td>
-			</tr>
-			{{end}}
-		</tbody>
-	</table>
-</div>
-{{end}}
-
-{{if .Data.UnpaidPayroll}}
-<div class="card">
-	<h2 class="card-title">Unpaid Payroll</h2>
-	<table>
-		<thead>
-			<tr>
-				<th>Employee</th>
-				<th>Period</th>
-				<th class="money">Total Pay</th>
-				<th class="actions"></th>
-			</tr>
-		</thead>
-		<tbody>
-			{{range .Data.UnpaidPayroll}}
-			<tr>
-				<td>{{.EmployeeName}}</td>
-				<td>{{.PeriodStart}} - {{.PeriodEnd}}</td>
-				<td class="money">${{printf "%.2f" .TotalPay}}</td>
-				<td class="actions">
-					<form action="/payroll/{{.ID}}/pay" method="POST" style="display:inline">
-						<button type="submit" class="btn btn-success btn-small">Mark Paid</button>
-					</form>
-					<a href="/payroll/{{.ID}}/edit" class="btn btn-secondary btn-small">Edit</a>
 				</td>
 			</tr>
 			{{end}}

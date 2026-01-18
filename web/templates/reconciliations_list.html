@@ -1,0 +1,179 @@
+{{template "header" .}}
+<div class="page-header">
+	<h1>Bank Statements</h1>
+	<a href="/expenses" class="btn btn-secondary">Back to Receipts</a>
+</div>
+
+{{if .Reconciliations}}
+<table>
+	<thead>
+		<tr>
+			<th>Statement Date</th>
+			<th>Account</th>
+			<th class="money">Deposits</th>
+			<th class="money">Payments</th>
+			<th class="money">Checks</th>
+			<th class="money">Fees</th>
+			<th>Status</th>
+			<th class="actions"></th>
+		</tr>
+	</thead>
+	<tbody>
+		{{range .Reconciliations}}
+		<tr>
+			<td><a href="/bank-statements/{{.ID}}">{{.StatementDateDisplay}}</a></td>
+			<td>{{if .AccountLastFour}}****{{.AccountLastFour}}{{else}}-{{end}}</td>
+			<td class="money" style="color: #16a34a;">{{if gt .ElectronicDeposits 0.0}}<span class="fmt-money">{{printf "%.2f" .ElectronicDeposits}}</span>{{else}}-{{end}}</td>
+			<td class="money" style="color: #dc2626;">{{if gt .ElectronicPayments 0.0}}<span class="fmt-money">{{printf "%.2f" .ElectronicPayments}}</span>{{else}}-{{end}}</td>
+			<td class="money" style="color: #dc2626;">{{if gt .ChecksPaid 0.0}}<span class="fmt-money">{{printf "%.2f" .ChecksPaid}}</span>{{else}}-{{end}}</td>
+			<td class="money" style="color: #dc2626;">{{if gt .ServiceFees 0.0}}<span class="fmt-money">{{printf "%.2f" .ServiceFees}}</span>{{else}}-{{end}}</td>
+			<td>
+				{{if eq .Status "completed"}}
+					<span class="status status-paid">Completed</span>
+				{{else if eq .Status "parsed"}}
+					<span class="status status-unpaid">Ready to Review</span>
+				{{else if eq .Status "parsing"}}
+					<span class="status" style="background: #fef3c7; color: #92400e;">Parsing...</span>
+				{{else if eq .Status "pending"}}
+					<span class="status" style="background: #e5e7eb; color: #374151;">Pending</span>
+				{{else}}
+					<span class="status status-unpaid">{{.Status}}</span>
+				{{end}}
+			</td>
+			<td class="actions">
+				{{if eq .Status "completed"}}
+					<a href="/bank-statements/{{.ID}}" class="btn btn-secondary btn-small">View</a>
+				{{else if eq .Status "parsed"}}
+					<a href="/bank-statements/{{.ID}}" class="btn btn-secondary btn-small">Review</a>
+				{{else if eq .Status "parsing"}}
+					<span class="btn btn-secondary btn-small" style="opacity: 0.5;">Parsing...</span>
+				{{else}}
+					<span class="btn btn-secondary btn-small" style="opacity: 0.5;">Waiting...</span>
+				{{end}}
+			</td>
+		</tr>
+		{{end}}
+	</tbody>
+</table>
+{{else}}
+<p class="empty-state">No bank reconciliations yet. Upload a statement to get started.</p>
+{{end}}
+
+<div class="card" style="margin-top: 2rem;">
+	<h2 style="margin-top: 0;">Upload Bank Statement</h2>
+	<form id="upload-form" action="/bank-statements/upload" method="POST" enctype="multipart/form-data">
+		<div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+			<div class="form-group" style="margin-bottom: 0;">
+				<label for="statement_month">Statement Month</label>
+				<select id="statement_month" name="statement_month" required>
+					{{range .AvailableMonths}}
+					<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>
+					{{end}}
+				</select>
+			</div>
+			<div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+				<label for="statement_file">Bank Statement (PDF)</label>
+				<input type="file" id="statement_file" name="statement_file" accept=".pdf" required>
+			</div>
+			<button type="submit" id="upload-btn" class="btn btn-primary">Upload Statement</button>
+		</div>
+	</form>
+	<div id="upload-progress" style="display: none; margin-top: 1rem;">
+		<div style="display: flex; align-items: center; gap: 0.5rem;">
+			<div class="spinner" style="width: 20px; height: 20px; border: 2px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+			<span id="progress-text">Uploading...</span>
+		</div>
+		<div style="margin-top: 0.5rem; background: #e5e7eb; border-radius: 4px; height: 8px; overflow: hidden;">
+			<div id="progress-bar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s;"></div>
+		</div>
+	</div>
+</div>
+
+<style>
+@keyframes spin {
+	to { transform: rotate(360deg); }
+}
+</style>
+
+<script>
+document.getElementById('upload-form').addEventListener('submit', async function(e) {
+	e.preventDefault();
+
+	const form = e.target;
+	const btn = document.getElementById('upload-btn');
+	const progress = document.getElementById('upload-progress');
+	const progressText = document.getElementById('progress-text');
+	const progressBar = document.getElementById('progress-bar');
+
+	// Disable form
+	btn.disabled = true;
+	btn.textContent = 'Uploading...';
+	progress.style.display = 'block';
+	progressText.textContent = 'Uploading file...';
+	progressBar.style.width = '10%';
+
+	try {
+		// Upload the file
+		const formData = new FormData(form);
+		const response = await fetch(form.action, {
+			method: 'POST',
+			body: formData
+		});
+
+		if (!response.ok) {
+			throw new Error('Upload failed: ' + await response.text());
+		}
+
+		const data = await response.json();
+		progressText.textContent = 'Parsing statement...';
+		progressBar.style.width = '20%';
+
+		// Poll for job status
+		const jobId = data.job_id;
+		const reconId = data.reconciliation_id;
+
+		while (true) {
+			await new Promise(r => setTimeout(r, 1000)); // Wait 1 second
+
+			const statusResponse = await fetch('/api/jobs/' + jobId);
+			const status = await statusResponse.json();
+
+			progressBar.style.width = Math.max(20, status.progress) + '%';
+
+			if (status.status === 'completed') {
+				progressText.textContent = 'Done! Redirecting...';
+				progressBar.style.width = '100%';
+				window.location.href = '/bank-statements/' + reconId;
+				return;
+			} else if (status.status === 'failed') {
+				throw new Error('Parsing failed: ' + status.result);
+			}
+
+			// Update progress text based on progress
+			if (status.progress < 40) {
+				progressText.textContent = 'Extracting text from PDF...';
+			} else if (status.progress < 50) {
+				progressText.textContent = 'Parsing transactions...';
+			} else if (status.progress < 95) {
+				progressText.textContent = 'Saving transactions (' + status.progress + '%)...';
+			} else {
+				progressText.textContent = 'Finishing up...';
+			}
+		}
+	} catch (err) {
+		alert('Error: ' + err.message);
+		btn.disabled = false;
+		btn.textContent = 'Upload Statement';
+		progress.style.display = 'none';
+	}
+});
+
+// Format money values with commas
+document.querySelectorAll('.fmt-money').forEach(function(el) {
+	var num = parseFloat(el.textContent);
+	if (!isNaN(num)) {
+		el.textContent = '$' + num.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+	}
+});
+</script>
+{{template "footer" .}}

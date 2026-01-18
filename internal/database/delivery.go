@@ -12,13 +12,13 @@ import (
 func (db *DB) GetDeliverySalesForDate(date string) (*models.DeliverySales, error) {
 	var d models.DeliverySales
 	err := db.QueryRow(`
-		SELECT id, date, grubhub_subtotal, grubhub_net, doordash_subtotal, doordash_net,
-		       ubereats_earnings, ubereats_payout, notes, created_at, updated_at
+		SELECT id, date(date), grubhub_subtotal, grubhub_net, doordash_subtotal, doordash_net,
+		       ubereats_earnings, ubereats_payout, notes
 		FROM delivery_sales
 		WHERE date = ?
 	`, date).Scan(&d.ID, &d.Date, &d.GrubhubSubtotal, &d.GrubhubNet,
 		&d.DoordashSubtotal, &d.DoordashNet, &d.UberEatsEarnings, &d.UberEatsPayout,
-		&d.Notes, &d.CreatedAt, &d.UpdatedAt)
+		&d.Notes)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -66,8 +66,8 @@ func (db *DB) GetDeliverySalesForDates(dates []string) (map[string]*models.Deliv
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, date, grubhub_subtotal, grubhub_net, doordash_subtotal, doordash_net,
-		       ubereats_earnings, ubereats_payout, notes, created_at, updated_at
+		SELECT id, date(date), grubhub_subtotal, grubhub_net, doordash_subtotal, doordash_net,
+		       ubereats_earnings, ubereats_payout, notes
 		FROM delivery_sales
 		WHERE date IN (%s)
 	`, strings.Join(placeholders, ","))
@@ -83,7 +83,7 @@ func (db *DB) GetDeliverySalesForDates(dates []string) (map[string]*models.Deliv
 		var d models.DeliverySales
 		if err := rows.Scan(&d.ID, &d.Date, &d.GrubhubSubtotal, &d.GrubhubNet,
 			&d.DoordashSubtotal, &d.DoordashNet, &d.UberEatsEarnings, &d.UberEatsPayout,
-			&d.Notes, &d.CreatedAt, &d.UpdatedAt); err != nil {
+			&d.Notes); err != nil {
 			return nil, fmt.Errorf("scan delivery sale: %w", err)
 		}
 		result[d.Date] = &d

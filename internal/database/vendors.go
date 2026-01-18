@@ -9,7 +9,7 @@ import (
 
 func (db *DB) ListVendors() ([]models.Vendor, error) {
 	rows, err := db.Query(`
-		SELECT id, name, category, description, created_at
+		SELECT id, name, category, description
 		FROM vendors
 		ORDER BY name
 	`)
@@ -21,7 +21,7 @@ func (db *DB) ListVendors() ([]models.Vendor, error) {
 	var vendors []models.Vendor
 	for rows.Next() {
 		var v models.Vendor
-		if err := rows.Scan(&v.ID, &v.Name, &v.Category, &v.Description, &v.CreatedAt); err != nil {
+		if err := rows.Scan(&v.ID, &v.Name, &v.Category, &v.Description); err != nil {
 			return nil, fmt.Errorf("scan vendor: %w", err)
 		}
 		vendors = append(vendors, v)
@@ -32,10 +32,10 @@ func (db *DB) ListVendors() ([]models.Vendor, error) {
 func (db *DB) GetVendor(id int64) (models.Vendor, error) {
 	var v models.Vendor
 	err := db.QueryRow(`
-		SELECT id, name, category, description, created_at
+		SELECT id, name, category, description
 		FROM vendors
 		WHERE id = ?
-	`, id).Scan(&v.ID, &v.Name, &v.Category, &v.Description, &v.CreatedAt)
+	`, id).Scan(&v.ID, &v.Name, &v.Category, &v.Description)
 	if err == sql.ErrNoRows {
 		return v, fmt.Errorf("vendor not found")
 	}

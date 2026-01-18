@@ -1,0 +1,46 @@
+{{template "header" .}}
+<div class="page-header">
+	<h1>Payroll: {{.WeekDisplay}}</h1>
+	<a href="/payroll" class="btn btn-secondary">Back to Payroll</a>
+</div>
+
+<table>
+	<thead>
+		<tr>
+			<th>Employee</th>
+			<th class="money">Rate</th>
+			<th class="money">Hours</th>
+			<th class="money">Total</th>
+			<th>Status</th>
+			<th>Payment</th>
+			<th class="hide-mobile">Date Paid</th>
+		</tr>
+	</thead>
+	<tbody>
+		{{range .Entries}}
+		{{if .Payroll}}
+		<tr>
+			<td>{{.Employee.Name}}</td>
+			<td class="money">${{printf "%.2f" .Payroll.HourlyRate}}</td>
+			<td class="money">{{printf "%.1f" .Payroll.TotalHours}}</td>
+			<td class="money">${{printf "%.2f" .Payroll.TotalPay}}</td>
+			<td>
+				{{if eq .Payroll.Status "paid"}}
+					<span class="status status-paid">Paid</span>
+				{{else}}
+					<span class="status status-unpaid">Unpaid</span>
+				{{end}}
+			</td>
+			<td>{{.Payroll.PaymentMethod}}{{if .Payroll.CheckNumber}} #{{.Payroll.CheckNumber}}{{end}}</td>
+			<td class="hide-mobile">{{.Payroll.DatePaid}}</td>
+		</tr>
+		{{end}}
+		{{end}}
+		<tr class="totals-row">
+			<td colspan="3">Total</td>
+			<td class="money">${{printf "%.2f" .Total}}</td>
+			<td colspan="3"></td>
+		</tr>
+	</tbody>
+</table>
+{{template "footer" .}}

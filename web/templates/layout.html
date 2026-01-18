@@ -13,10 +13,8 @@
 			<a href="/" class="brand">HomeBooks</a>
 			<a href="/" {{if eq .Active "dashboard"}}class="active"{{end}}>Dashboard</a>
 			<a href="/sales" {{if eq .Active "sales"}}class="active"{{end}}>Sales</a>
-			<a href="/expenses" {{if eq .Active "expenses"}}class="active"{{end}}>Expenses</a>
+			<a href="/expenses" {{if eq .Active "expenses"}}class="active"{{end}}>Receipts</a>
 			<a href="/payroll" {{if eq .Active "payroll"}}class="active"{{end}}>Payroll</a>
-			<a href="/vendors" {{if eq .Active "vendors"}}class="active"{{end}}>Vendors</a>
-			<a href="/employees" {{if eq .Active "employees"}}class="active"{{end}}>Employees</a>
 			<form action="/logout" method="POST" class="logout-btn" style="display:inline">
 				<button type="submit" class="btn btn-secondary btn-small">Logout</button>
 			</form>

@@ -7,63 +7,464 @@
 <div class="error">{{.Error}}</div>
 {{end}}
 
-<form action="/sales/delivery" method="POST">
-	<div class="form-group">
-		<label for="date">Date</label>
-		<input type="date" id="date" name="date" value="{{.Delivery.Date}}" required>
+<form action="/sales/delivery" method="POST" class="delivery-form">
+	<!-- Date Picker -->
+	<div class="form-section date-section">
+		<div class="form-group">
+			<label for="date">Date</label>
+			<input type="date" id="date" name="date" value="{{.Delivery.Date}}" required>
+		</div>
 	</div>
 
-	<fieldset class="delivery-section">
-		<legend>Grubhub</legend>
-		<div class="form-row">
-			<div class="form-group">
-				<label for="grubhub_subtotal">Subtotal</label>
-				<input type="number" id="grubhub_subtotal" name="grubhub_subtotal" step="0.01" min="0" value="{{if .Delivery.ID}}{{printf "%.2f" .Delivery.GrubhubSubtotal}}{{end}}">
+	<!-- Delivery Services Grid -->
+	<div class="services-grid">
+		<!-- Grubhub -->
+		<div class="service-card service-grubhub">
+			<div class="service-header">
+				<span class="service-logo">
+					<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+						<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+					</svg>
+				</span>
+				<span class="service-name">Grubhub</span>
 			</div>
-			<div class="form-group">
-				<label for="grubhub_net">Net Total</label>
-				<input type="number" id="grubhub_net" name="grubhub_net" step="0.01" min="0" value="{{if .Delivery.ID}}{{printf "%.2f" .Delivery.GrubhubNet}}{{end}}">
-			</div>
-		</div>
-	</fieldset>
-
-	<fieldset class="delivery-section">
-		<legend>Doordash</legend>
-		<div class="form-row">
-			<div class="form-group">
-				<label for="doordash_subtotal">Subtotal</label>
-				<input type="number" id="doordash_subtotal" name="doordash_subtotal" step="0.01" min="0" value="{{if .Delivery.ID}}{{printf "%.2f" .Delivery.DoordashSubtotal}}{{end}}">
-			</div>
-			<div class="form-group">
-				<label for="doordash_net">Net Total</label>
-				<input type="number" id="doordash_net" name="doordash_net" step="0.01" min="0" value="{{if .Delivery.ID}}{{printf "%.2f" .Delivery.DoordashNet}}{{end}}">
-			</div>
-		</div>
-	</fieldset>
-
-	<fieldset class="delivery-section">
-		<legend>Uber Eats</legend>
-		<div class="form-row">
-			<div class="form-group">
-				<label for="ubereats_earnings">Earnings</label>
-				<input type="number" id="ubereats_earnings" name="ubereats_earnings" step="0.01" min="0" value="{{if .Delivery.ID}}{{printf "%.2f" .Delivery.UberEatsEarnings}}{{end}}">
-			</div>
-			<div class="form-group">
-				<label for="ubereats_payout">Payout</label>
-				<input type="number" id="ubereats_payout" name="ubereats_payout" step="0.01" min="0" value="{{if .Delivery.ID}}{{printf "%.2f" .Delivery.UberEatsPayout}}{{end}}">
+			<div class="service-inputs">
+				<div class="form-group">
+					<label for="grubhub_subtotal">Subtotal (Gross)</label>
+					<div class="input-with-prefix">
+						<span class="input-prefix">$</span>
+						<input type="number" id="grubhub_subtotal" name="grubhub_subtotal" step="0.01" min="0" value="{{if .Delivery.ID}}{{printf "%.2f" .Delivery.GrubhubSubtotal}}{{end}}" placeholder="0.00">
+					</div>
+				</div>
+				<div class="form-group">
+					<label for="grubhub_net">Net (After Fees)</label>
+					<div class="input-with-prefix">
+						<span class="input-prefix">$</span>
+						<input type="number" id="grubhub_net" name="grubhub_net" step="0.01" min="0" value="{{if .Delivery.ID}}{{printf "%.2f" .Delivery.GrubhubNet}}{{end}}" placeholder="0.00">
+					</div>
+				</div>
+				<div class="service-fee">
+					<span class="fee-label">Fees:</span>
+					<span class="fee-value" id="grubhub-fee">$0.00</span>
+				</div>
 			</div>
 		</div>
-	</fieldset>
 
-	<div class="form-group">
-		<label for="notes">Notes (optional)</label>
-		<textarea id="notes" name="notes">{{.Delivery.Notes}}</textarea>
+		<!-- Doordash -->
+		<div class="service-card service-doordash">
+			<div class="service-header">
+				<span class="service-logo">
+					<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+						<path d="M23.071 8.409a6.09 6.09 0 00-5.396-3.228H.584A.589.589 0 00.17 6.184L3.894 9.93a1.752 1.752 0 001.242.516h12.049a1.554 1.554 0 11.031 3.108H8.91a.589.589 0 00-.415 1.003l3.725 3.747a1.75 1.75 0 001.242.516h3.757c4.887 0 8.584-5.225 5.852-10.41z"/>
+					</svg>
+				</span>
+				<span class="service-name">DoorDash</span>
+			</div>
+			<div class="service-inputs">
+				<div class="form-group">
+					<label for="doordash_subtotal">Subtotal (Gross)</label>
+					<div class="input-with-prefix">
+						<span class="input-prefix">$</span>
+						<input type="number" id="doordash_subtotal" name="doordash_subtotal" step="0.01" min="0" value="{{if .Delivery.ID}}{{printf "%.2f" .Delivery.DoordashSubtotal}}{{end}}" placeholder="0.00">
+					</div>
+				</div>
+				<div class="form-group">
+					<label for="doordash_net">Net (After Fees)</label>
+					<div class="input-with-prefix">
+						<span class="input-prefix">$</span>
+						<input type="number" id="doordash_net" name="doordash_net" step="0.01" min="0" value="{{if .Delivery.ID}}{{printf "%.2f" .Delivery.DoordashNet}}{{end}}" placeholder="0.00">
+					</div>
+				</div>
+				<div class="service-fee">
+					<span class="fee-label">Fees:</span>
+					<span class="fee-value" id="doordash-fee">$0.00</span>
+				</div>
+			</div>
+		</div>
+
+		<!-- Uber Eats -->
+		<div class="service-card service-ubereats">
+			<div class="service-header">
+				<span class="service-logo">
+					<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+						<path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+					</svg>
+				</span>
+				<span class="service-name">Uber Eats</span>
+			</div>
+			<div class="service-inputs">
+				<div class="form-group">
+					<label for="ubereats_earnings">Earnings (Gross)</label>
+					<div class="input-with-prefix">
+						<span class="input-prefix">$</span>
+						<input type="number" id="ubereats_earnings" name="ubereats_earnings" step="0.01" min="0" value="{{if .Delivery.ID}}{{printf "%.2f" .Delivery.UberEatsEarnings}}{{end}}" placeholder="0.00">
+					</div>
+				</div>
+				<div class="form-group">
+					<label for="ubereats_payout">Payout (Net)</label>
+					<div class="input-with-prefix">
+						<span class="input-prefix">$</span>
+						<input type="number" id="ubereats_payout" name="ubereats_payout" step="0.01" min="0" value="{{if .Delivery.ID}}{{printf "%.2f" .Delivery.UberEatsPayout}}{{end}}" placeholder="0.00">
+					</div>
+				</div>
+				<div class="service-fee">
+					<span class="fee-label">Fees:</span>
+					<span class="fee-value" id="ubereats-fee">$0.00</span>
+				</div>
+			</div>
+		</div>
 	</div>
 
-	<div style="display: flex; gap: 0.5rem;">
-		<button type="submit" class="btn btn-primary">Save</button>
-		<a href="/sales" class="btn btn-secondary">Cancel</a>
+	<!-- Summary Bar -->
+	<div class="summary-bar">
+		<div class="summary-item">
+			<span class="summary-label">Total Gross</span>
+			<span class="summary-value" id="summary-gross">$0.00</span>
+		</div>
+		<div class="summary-item">
+			<span class="summary-label">Total Net</span>
+			<span class="summary-value" id="summary-net">$0.00</span>
+		</div>
+		<div class="summary-item summary-fees">
+			<span class="summary-label">Total Fees</span>
+			<span class="summary-value" id="summary-fees">$0.00</span>
+			<span class="fee-percent" id="summary-fee-percent"></span>
+		</div>
+	</div>
+
+	<!-- Notes -->
+	<div class="form-section">
+		<h3 class="form-section-title">Notes</h3>
+		<div class="form-group">
+			<textarea id="notes" name="notes" rows="2" placeholder="Any notes about today's delivery sales (optional)...">{{.Delivery.Notes}}</textarea>
+		</div>
+	</div>
+
+	<!-- Actions -->
+	<div class="form-actions-row">
+		<div class="form-actions-left"></div>
+		<div class="form-actions-right">
+			<a href="/sales" class="btn btn-secondary">Cancel</a>
+			<button type="submit" class="btn btn-primary">Save Delivery Sales</button>
+		</div>
 	</div>
 </form>
 
+<script>
+(function() {
+	// Input elements
+	const grubhubSubtotal = document.getElementById('grubhub_subtotal');
+	const grubhubNet = document.getElementById('grubhub_net');
+	const doordashSubtotal = document.getElementById('doordash_subtotal');
+	const doordashNet = document.getElementById('doordash_net');
+	const ubereatsEarnings = document.getElementById('ubereats_earnings');
+	const ubereatsPayout = document.getElementById('ubereats_payout');
+
+	// Fee displays
+	const grubhubFee = document.getElementById('grubhub-fee');
+	const doordashFee = document.getElementById('doordash-fee');
+	const ubereatsFee = document.getElementById('ubereats-fee');
+
+	// Summary displays
+	const summaryGross = document.getElementById('summary-gross');
+	const summaryNet = document.getElementById('summary-net');
+	const summaryFees = document.getElementById('summary-fees');
+	const summaryFeePercent = document.getElementById('summary-fee-percent');
+
+	function formatMoney(val) {
+		return '$' + Math.abs(val).toFixed(2);
+	}
+
+	function updateCalculations() {
+		const gh_sub = parseFloat(grubhubSubtotal.value) || 0;
+		const gh_net = parseFloat(grubhubNet.value) || 0;
+		const dd_sub = parseFloat(doordashSubtotal.value) || 0;
+		const dd_net = parseFloat(doordashNet.value) || 0;
+		const ue_earn = parseFloat(ubereatsEarnings.value) || 0;
+		const ue_pay = parseFloat(ubereatsPayout.value) || 0;
+
+		// Calculate individual fees
+		const gh_fee = gh_sub - gh_net;
+		const dd_fee = dd_sub - dd_net;
+		const ue_fee = ue_earn - ue_pay;
+
+		grubhubFee.textContent = formatMoney(gh_fee);
+		doordashFee.textContent = formatMoney(dd_fee);
+		ubereatsFee.textContent = formatMoney(ue_fee);
+
+		// Calculate totals
+		const totalGross = gh_sub + dd_sub + ue_earn;
+		const totalNet = gh_net + dd_net + ue_pay;
+		const totalFees = gh_fee + dd_fee + ue_fee;
+
+		summaryGross.textContent = formatMoney(totalGross);
+		summaryNet.textContent = formatMoney(totalNet);
+		summaryFees.textContent = formatMoney(totalFees);
+
+		// Calculate fee percentage
+		if (totalGross > 0) {
+			const feePercent = (totalFees / totalGross) * 100;
+			summaryFeePercent.textContent = '(' + feePercent.toFixed(1) + '%)';
+		} else {
+			summaryFeePercent.textContent = '';
+		}
+	}
+
+	// Add listeners to all inputs
+	[grubhubSubtotal, grubhubNet, doordashSubtotal, doordashNet, ubereatsEarnings, ubereatsPayout].forEach(input => {
+		input.addEventListener('input', updateCalculations);
+	});
+
+	// Initial calculation
+	updateCalculations();
+})();
+</script>
+
+<style>
+.delivery-form {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+
+.form-section {
+	background: white;
+	border: 1px solid #e5e7eb;
+	border-radius: 8px;
+	padding: 1.5rem;
+}
+
+.form-section-title {
+	font-size: 0.8125rem;
+	font-weight: 600;
+	color: #6b7280;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	margin: 0 0 1.25rem 0;
+}
+
+.date-section {
+	padding: 1rem 1.5rem;
+}
+
+.date-section .form-group {
+	max-width: 200px;
+	margin-bottom: 0;
+}
+
+/* Services Grid */
+.services-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 1.5rem;
+}
+
+@media (max-width: 900px) {
+	.services-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* Service Cards */
+.service-card {
+	background: white;
+	border-radius: 12px;
+	overflow: hidden;
+	border: 1px solid #e5e7eb;
+}
+
+.service-header {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 1rem 1.25rem;
+	color: white;
+}
+
+.service-logo {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	background: rgba(255,255,255,0.2);
+	border-radius: 8px;
+}
+
+.service-name {
+	font-size: 1.125rem;
+	font-weight: 600;
+}
+
+.service-inputs {
+	padding: 1.25rem;
+}
+
+.service-inputs .form-group {
+	margin-bottom: 1rem;
+}
+
+.service-inputs .form-group:last-of-type {
+	margin-bottom: 0;
+}
+
+.service-fee {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-top: 1rem;
+	padding-top: 1rem;
+	border-top: 1px solid #f3f4f6;
+}
+
+.fee-label {
+	font-size: 0.8125rem;
+	color: #6b7280;
+}
+
+.fee-value {
+	font-weight: 600;
+	font-family: monospace;
+	color: #dc2626;
+}
+
+/* Brand Colors */
+.service-grubhub .service-header {
+	background: linear-gradient(135deg, #f63440 0%, #d42e38 100%);
+}
+
+.service-doordash .service-header {
+	background: linear-gradient(135deg, #ff3008 0%, #eb2a06 100%);
+}
+
+.service-ubereats .service-header {
+	background: linear-gradient(135deg, #06c167 0%, #05a859 100%);
+}
+
+/* Input Styling */
+.input-with-prefix {
+	display: flex;
+	align-items: stretch;
+}
+
+.input-prefix {
+	display: flex;
+	align-items: center;
+	padding: 0 0.75rem;
+	background: #f3f4f6;
+	border: 1px solid #d1d5db;
+	border-right: none;
+	border-radius: 6px 0 0 6px;
+	color: #6b7280;
+	font-weight: 500;
+}
+
+.input-with-prefix input {
+	border-radius: 0 6px 6px 0;
+	flex: 1;
+	min-width: 0;
+}
+
+/* Summary Bar */
+.summary-bar {
+	display: flex;
+	background: #1e293b;
+	border-radius: 8px;
+	padding: 1.25rem 1.5rem;
+	gap: 3rem;
+}
+
+.summary-item {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+.summary-item .summary-label {
+	font-size: 0.6875rem;
+	font-weight: 500;
+	color: #94a3b8;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.summary-item .summary-value {
+	font-size: 1.5rem;
+	font-weight: 600;
+	color: white;
+	font-family: monospace;
+}
+
+.summary-fees {
+	margin-left: auto;
+}
+
+.summary-fees .summary-value {
+	color: #f87171;
+}
+
+.fee-percent {
+	font-size: 0.75rem;
+	color: #94a3b8;
+	margin-top: 0.125rem;
+}
+
+/* Actions Row */
+.form-actions-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding-top: 0.5rem;
+}
+
+.form-actions-left {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.form-actions-right {
+	display: flex;
+	gap: 0.5rem;
+}
+
+@media (max-width: 600px) {
+	.summary-bar {
+		flex-wrap: wrap;
+		gap: 1.5rem;
+	}
+
+	.summary-item {
+		flex: 1;
+		min-width: 100px;
+	}
+
+	.summary-fees {
+		margin-left: 0;
+		flex-basis: 100%;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		padding-top: 1rem;
+		border-top: 1px solid #334155;
+	}
+
+	.summary-fees .summary-value {
+		font-size: 1.25rem;
+	}
+
+	.form-actions-row {
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.form-actions-right {
+		width: 100%;
+		flex-direction: column;
+	}
+
+	.form-actions-right .btn {
+		width: 100%;
+	}
+}
+</style>
 {{template "footer" .}}
