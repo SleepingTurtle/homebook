@@ -984,12 +984,12 @@ func (h *Handler) ReconciliationsUpload(w http.ResponseWriter, r *http.Request) 
 		StatementDate:   statementDate,
 		StartingBalance: 0,
 		EndingBalance:   0,
-		Status:          "in_progress",
+		Status:          "pending",
 		FilePath:        filePath,
 		Notes:           fmt.Sprintf("Uploaded: %s", header.Filename),
 	}
 
-	id, err := h.db.CreateReconciliation(recon)
+	reconID, err := h.db.CreateReconciliation(recon)
 	if err != nil {
 		// Clean up saved file on error
 		h.files.Delete(filePath)
@@ -998,10 +998,31 @@ func (h *Handler) ReconciliationsUpload(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// TODO: Parse CSV/PDF and store transactions
+	// Queue parse job
+	jobPayload := map[string]any{
+		"reconciliation_id": reconID,
+		"file_path":         filePath,
+	}
+	jobID, err := h.db.CreateJob("parse_statement", jobPayload)
+	if err != nil {
+		l.Error("reconciliation_job_create_error", "error", err.Error())
+		http.Error(w, "Failed to queue parse job", http.StatusInternalServerError)
+		return
+	}
 
-	// Redirect to edit page
-	http.Redirect(w, r, fmt.Sprintf("/reconciliations/%d/edit", id), http.StatusSeeOther)
+	// Update reconciliation with job ID
+	if err := h.db.UpdateReconciliationParseJob(reconID, jobID); err != nil {
+		l.Error("reconciliation_update_job_error", "error", err.Error())
+	}
+
+	l.Info("reconciliation_job_queued", "reconciliation_id", reconID, "job_id", jobID)
+
+	// Return JSON response for frontend polling
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"reconciliation_id": reconID,
+		"job_id":            jobID,
+	})
 }
 
 // JobStatus returns the status of a background job as JSON (for polling)
