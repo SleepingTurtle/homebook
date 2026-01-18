@@ -273,3 +273,16 @@ type GroupedSalesData struct {
 	PrevMonths []SalesGroup // Previous months in current year (grouped by date)
 	PrevYears  []SalesGroup // Previous years (grouped by date)
 }
+
+// BankReconciliation represents a bank statement reconciliation
+type BankReconciliation struct {
+	ID                 int64
+	StatementDate      string  // YYYY-MM-DD
+	StatementDateDisplay string // formatted for display
+	StartingBalance    float64
+	EndingBalance      float64
+	Status             string // "in_progress" or "completed"
+	Notes              string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}

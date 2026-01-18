@@ -888,3 +888,18 @@ func (h *Handler) PayrollDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, "/payroll", http.StatusFound)
 }
+
+// Reconciliations handlers
+
+func (h *Handler) ReconciliationsList(w http.ResponseWriter, r *http.Request) {
+	reconciliations, err := h.db.ListReconciliations()
+	if err != nil {
+		logger.FromContext(r.Context()).Error("reconciliations_list_error", "error", err.Error())
+	}
+
+	h.render(w, r, "reconciliations_list.html", map[string]any{
+		"Title":           "Bank Reconciliations",
+		"Active":          "expenses",
+		"Reconciliations": reconciliations,
+	})
+}

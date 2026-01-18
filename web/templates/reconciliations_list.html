@@ -1,0 +1,48 @@
+{{template "header" .}}
+<div class="page-header">
+	<h1>Bank Reconciliations</h1>
+	<div style="display: flex; gap: 0.5rem;">
+		<a href="/reconciliations/new" class="btn btn-primary">New Reconciliation</a>
+		<a href="/expenses" class="btn btn-secondary">Back to Expenses</a>
+	</div>
+</div>
+
+{{if .Reconciliations}}
+<table>
+	<thead>
+		<tr>
+			<th>Statement Date</th>
+			<th class="money">Starting Balance</th>
+			<th class="money">Ending Balance</th>
+			<th>Status</th>
+			<th class="actions"></th>
+		</tr>
+	</thead>
+	<tbody>
+		{{range .Reconciliations}}
+		<tr>
+			<td>{{.StatementDateDisplay}}</td>
+			<td class="money">${{printf "%.2f" .StartingBalance}}</td>
+			<td class="money">${{printf "%.2f" .EndingBalance}}</td>
+			<td>
+				{{if eq .Status "completed"}}
+					<span class="status status-paid">Completed</span>
+				{{else}}
+					<span class="status status-unpaid">In Progress</span>
+				{{end}}
+			</td>
+			<td class="actions">
+				{{if eq .Status "in_progress"}}
+					<a href="/reconciliations/{{.ID}}/edit" class="btn btn-secondary btn-small">Continue</a>
+				{{else}}
+					<a href="/reconciliations/{{.ID}}" class="btn btn-secondary btn-small">View</a>
+				{{end}}
+			</td>
+		</tr>
+		{{end}}
+	</tbody>
+</table>
+{{else}}
+<p class="empty-state">No bank reconciliations yet. Create one to get started.</p>
+{{end}}
+{{template "footer" .}}

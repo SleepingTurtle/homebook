@@ -87,6 +87,17 @@ CREATE TABLE IF NOT EXISTS payroll (
     UNIQUE(week_id, employee_id)
 );
 
+CREATE TABLE IF NOT EXISTS bank_reconciliations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    statement_date DATE NOT NULL,
+    starting_balance REAL NOT NULL DEFAULT 0,
+    ending_balance REAL NOT NULL DEFAULT 0,
+    status TEXT CHECK(status IN ('in_progress', 'completed')) DEFAULT 'in_progress',
+    notes TEXT DEFAULT '',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
     token TEXT PRIMARY KEY,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -104,3 +115,5 @@ CREATE INDEX IF NOT EXISTS idx_payroll_week_id ON payroll(week_id);
 CREATE INDEX IF NOT EXISTS idx_payroll_status ON payroll(status);
 CREATE INDEX IF NOT EXISTS idx_payroll_employee_id ON payroll(employee_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_reconciliations_date ON bank_reconciliations(statement_date);
+CREATE INDEX IF NOT EXISTS idx_reconciliations_status ON bank_reconciliations(status);
