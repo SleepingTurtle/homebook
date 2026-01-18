@@ -1,8 +1,22 @@
-.PHONY: build run dev watch docker-up docker-down backup clean seed repopulate
+.PHONY: build run dev watch docker-up docker-down backup clean seed repopulate release
+
+# Version info
+VERSION ?= $(shell cat VERSION 2>/dev/null || echo "dev")
+BUILD_TIME ?= $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+LDFLAGS := -X homebooks/internal/version.Version=$(VERSION) \
+           -X homebooks/internal/version.BuildTime=$(BUILD_TIME) \
+           -X homebooks/internal/version.GitCommit=$(GIT_COMMIT)
 
 # Build the binary
 build:
-	go build -o homebooks ./cmd/server
+	go build -ldflags "$(LDFLAGS)" -o homebooks ./cmd/server
+
+# Build optimized release binary
+release:
+	@echo "Building release $(VERSION)..."
+	go build -ldflags "$(LDFLAGS) -s -w" -o homebooks ./cmd/server
 
 # Run the compiled binary
 run: build
