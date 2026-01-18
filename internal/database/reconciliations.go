@@ -86,3 +86,25 @@ func (db *DB) DeleteReconciliation(id int64) error {
 	}
 	return nil
 }
+
+// GetReconciledMonths returns a set of months (YYYY-MM format) that have reconciliations
+func (db *DB) GetReconciledMonths() (map[string]bool, error) {
+	rows, err := db.Query(`
+		SELECT DISTINCT strftime('%Y-%m', statement_date)
+		FROM bank_reconciliations
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("query reconciled months: %w", err)
+	}
+	defer rows.Close()
+
+	months := make(map[string]bool)
+	for rows.Next() {
+		var month string
+		if err := rows.Scan(&month); err != nil {
+			return nil, fmt.Errorf("scan month: %w", err)
+		}
+		months[month] = true
+	}
+	return months, rows.Err()
+}

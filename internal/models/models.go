@@ -286,3 +286,10 @@ type BankReconciliation struct {
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 }
+
+// MonthOption represents a month available for reconciliation
+type MonthOption struct {
+	Value    string // YYYY-MM format
+	Label    string // "January 2025" format
+	Selected bool
+}

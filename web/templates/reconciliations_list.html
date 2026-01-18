@@ -1,10 +1,7 @@
 {{template "header" .}}
 <div class="page-header">
 	<h1>Bank Reconciliations</h1>
-	<div style="display: flex; gap: 0.5rem;">
-		<a href="/reconciliations/new" class="btn btn-primary">New Reconciliation</a>
-		<a href="/expenses" class="btn btn-secondary">Back to Expenses</a>
-	</div>
+	<a href="/expenses" class="btn btn-secondary">Back to Expenses</a>
 </div>
 
 {{if .Reconciliations}}
@@ -43,6 +40,27 @@
 	</tbody>
 </table>
 {{else}}
-<p class="empty-state">No bank reconciliations yet. Create one to get started.</p>
+<p class="empty-state">No bank reconciliations yet. Upload a statement to get started.</p>
 {{end}}
+
+<div class="card" style="margin-top: 2rem;">
+	<h2 style="margin-top: 0;">Upload Bank Statement</h2>
+	<form action="/reconciliations/upload" method="POST" enctype="multipart/form-data">
+		<div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+			<div class="form-group" style="margin-bottom: 0;">
+				<label for="statement_month">Statement Month</label>
+				<select id="statement_month" name="statement_month" required>
+					{{range .AvailableMonths}}
+					<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>
+					{{end}}
+				</select>
+			</div>
+			<div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+				<label for="statement_file">Bank Statement (CSV or PDF)</label>
+				<input type="file" id="statement_file" name="statement_file" accept=".csv,.pdf" required>
+			</div>
+			<button type="submit" class="btn btn-primary">Upload Statement</button>
+		</div>
+	</form>
+</div>
 {{template "footer" .}}

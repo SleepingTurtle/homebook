@@ -897,9 +897,95 @@ func (h *Handler) ReconciliationsList(w http.ResponseWriter, r *http.Request) {
 		logger.FromContext(r.Context()).Error("reconciliations_list_error", "error", err.Error())
 	}
 
+	// Get months that already have reconciliations
+	reconciledMonths, err := h.db.GetReconciledMonths()
+	if err != nil {
+		logger.FromContext(r.Context()).Error("reconciled_months_error", "error", err.Error())
+		reconciledMonths = make(map[string]bool)
+	}
+
+	// Generate available months (last 12 months, excluding already reconciled)
+	availableMonths := []models.MonthOption{}
+	now := time.Now()
+	// Start from previous month
+	current := time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, time.Local)
+
+	for i := 0; i < 12; i++ {
+		monthValue := current.Format("2006-01")
+		if !reconciledMonths[monthValue] {
+			availableMonths = append(availableMonths, models.MonthOption{
+				Value:    monthValue,
+				Label:    current.Format("January 2006"),
+				Selected: len(availableMonths) == 0, // Select first available
+			})
+		}
+		current = current.AddDate(0, -1, 0)
+	}
+
 	h.render(w, r, "reconciliations_list.html", map[string]any{
 		"Title":           "Bank Reconciliations",
 		"Active":          "expenses",
 		"Reconciliations": reconciliations,
+		"AvailableMonths": availableMonths,
 	})
+}
+
+func (h *Handler) ReconciliationsUpload(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	// Parse multipart form (max 10MB)
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		l.Error("reconciliation_upload_parse_error", "error", err.Error())
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	// Get selected month (YYYY-MM format)
+	statementMonth := r.FormValue("statement_month")
+	if statementMonth == "" {
+		http.Error(w, "Statement month is required", http.StatusBadRequest)
+		return
+	}
+
+	// Parse month to get last day of month for statement date
+	monthTime, err := time.Parse("2006-01", statementMonth)
+	if err != nil {
+		l.Error("reconciliation_upload_month_parse", "error", err.Error())
+		http.Error(w, "Invalid month format", http.StatusBadRequest)
+		return
+	}
+	// Get last day of the month
+	statementDate := monthTime.AddDate(0, 1, -1).Format("2006-01-02")
+
+	// Get uploaded file
+	file, header, err := r.FormFile("statement_file")
+	if err != nil {
+		l.Error("reconciliation_upload_file_error", "error", err.Error())
+		http.Error(w, "Failed to get uploaded file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	l.Info("reconciliation_upload", "month", statementMonth, "filename", header.Filename, "size", header.Size)
+
+	// Create reconciliation record
+	recon := models.BankReconciliation{
+		StatementDate:   statementDate,
+		StartingBalance: 0,
+		EndingBalance:   0,
+		Status:          "in_progress",
+		Notes:           fmt.Sprintf("Uploaded: %s", header.Filename),
+	}
+
+	id, err := h.db.CreateReconciliation(recon)
+	if err != nil {
+		l.Error("reconciliation_create_error", "error", err.Error())
+		http.Error(w, "Failed to create reconciliation", http.StatusInternalServerError)
+		return
+	}
+
+	// TODO: Parse CSV/PDF and store transactions
+
+	// Redirect to edit page
+	http.Redirect(w, r, fmt.Sprintf("/reconciliations/%d/edit", id), http.StatusSeeOther)
 }
