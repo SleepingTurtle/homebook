@@ -139,6 +139,7 @@ type Expense struct {
 	DueDate       string // YYYY-MM-DD or empty
 	DatePaid      string // YYYY-MM-DD or empty
 	Notes         string
+	ReceiptPath   string // stored filename in filestore
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }

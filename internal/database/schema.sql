@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     due_date DATE,
     date_paid DATE,
     notes TEXT DEFAULT '',
+    receipt_path TEXT DEFAULT '',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

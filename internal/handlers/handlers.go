@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -488,6 +490,13 @@ func (h *Handler) ExpensesNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ExpensesCreate(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	// Parse multipart form for file upload (5MB limit)
+	if err := r.ParseMultipartForm(5 << 20); err != nil {
+		l.Error("expense_parse_form_error", "error", err.Error())
+	}
+
 	vendorID, _ := strconv.ParseInt(r.FormValue("vendor_id"), 10, 64)
 	amount, _ := strconv.ParseFloat(r.FormValue("amount"), 64)
 
@@ -505,8 +514,24 @@ func (h *Handler) ExpensesCreate(w http.ResponseWriter, r *http.Request) {
 		Notes:         r.FormValue("notes"),
 	}
 
-	_, err := h.db.CreateExpense(expense)
+	// Handle receipt file upload
+	file, header, err := r.FormFile("receipt")
+	if err == nil {
+		defer file.Close()
+		storedPath, err := h.files.Save(header.Filename, file)
+		if err != nil {
+			l.Error("expense_receipt_save_error", "error", err.Error())
+		} else {
+			expense.ReceiptPath = storedPath
+		}
+	}
+
+	_, err = h.db.CreateExpense(expense)
 	if err != nil {
+		// Clean up uploaded file on error
+		if expense.ReceiptPath != "" {
+			h.files.Delete(expense.ReceiptPath)
+		}
 		vendors, _ := h.db.ListVendors()
 		lastCheck, _ := h.db.GetLastExpenseCheckNumber()
 		h.render(w, r, "expenses_form.html", map[string]interface{}{
@@ -541,9 +566,19 @@ func (h *Handler) ExpensesEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ExpensesUpdate(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	// Parse multipart form for file upload (5MB limit)
+	if err := r.ParseMultipartForm(5 << 20); err != nil {
+		l.Error("expense_parse_form_error", "error", err.Error())
+	}
+
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	vendorID, _ := strconv.ParseInt(r.FormValue("vendor_id"), 10, 64)
 	amount, _ := strconv.ParseFloat(r.FormValue("amount"), 64)
+
+	// Get existing receipt path to preserve if no new file uploaded
+	oldReceiptPath, _ := h.db.GetExpenseReceiptPath(id)
 
 	expense := models.Expense{
 		ID:            id,
@@ -558,10 +593,29 @@ func (h *Handler) ExpensesUpdate(w http.ResponseWriter, r *http.Request) {
 		DueDate:       r.FormValue("due_date"),
 		DatePaid:      r.FormValue("date_paid"),
 		Notes:         r.FormValue("notes"),
+		ReceiptPath:   oldReceiptPath, // Preserve existing receipt by default
 	}
 
-	err := h.db.UpdateExpense(expense)
+	// Handle new receipt file upload
+	var newReceiptPath string
+	file, header, err := r.FormFile("receipt")
+	if err == nil {
+		defer file.Close()
+		storedPath, err := h.files.Save(header.Filename, file)
+		if err != nil {
+			l.Error("expense_receipt_save_error", "error", err.Error())
+		} else {
+			newReceiptPath = storedPath
+			expense.ReceiptPath = storedPath
+		}
+	}
+
+	err = h.db.UpdateExpense(expense)
 	if err != nil {
+		// Clean up newly uploaded file on error
+		if newReceiptPath != "" {
+			h.files.Delete(newReceiptPath)
+		}
 		vendors, _ := h.db.ListVendors()
 		lastCheck, _ := h.db.GetLastExpenseCheckNumber()
 		h.render(w, r, "expenses_form.html", map[string]interface{}{
@@ -574,6 +628,12 @@ func (h *Handler) ExpensesUpdate(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	// Delete old receipt file if a new one was uploaded successfully
+	if newReceiptPath != "" && oldReceiptPath != "" && oldReceiptPath != newReceiptPath {
+		h.files.Delete(oldReceiptPath)
+	}
+
 	http.Redirect(w, r, "/expenses", http.StatusFound)
 }
 
@@ -603,8 +663,118 @@ func (h *Handler) ExpensesPay(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ExpensesDelete(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	// Delete receipt file if exists
+	if receiptPath, err := h.db.GetExpenseReceiptPath(id); err == nil && receiptPath != "" {
+		h.files.Delete(receiptPath)
+	}
 	h.db.DeleteExpense(id)
 	http.Redirect(w, r, "/expenses", http.StatusFound)
+}
+
+// ExpensesDownloadReceipt serves the receipt file for an expense
+func (h *Handler) ExpensesDownloadReceipt(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	receiptPath, err := h.db.GetExpenseReceiptPath(id)
+	if err != nil || receiptPath == "" {
+		http.Error(w, "Receipt not found", http.StatusNotFound)
+		return
+	}
+
+	file, err := h.files.Get(receiptPath)
+	if err != nil {
+		http.Error(w, "Receipt file not found", http.StatusNotFound)
+		return
+	}
+	defer file.Close()
+
+	// Determine content type from extension
+	contentType := "application/octet-stream"
+	ext := strings.ToLower(filepath.Ext(receiptPath))
+	switch ext {
+	case ".pdf":
+		contentType = "application/pdf"
+	case ".jpg", ".jpeg":
+		contentType = "image/jpeg"
+	case ".png":
+		contentType = "image/png"
+	case ".gif":
+		contentType = "image/gif"
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=\"receipt%s\"", ext))
+	io.Copy(w, file)
+}
+
+// ExpensesUploadReceipt handles quick receipt upload from list page
+func (h *Handler) ExpensesUploadReceipt(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+
+	// Parse multipart form (5MB limit)
+	if err := r.ParseMultipartForm(5 << 20); err != nil {
+		l.Error("receipt_upload_parse_error", "error", err.Error())
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("receipt")
+	if err != nil {
+		http.Error(w, "No file provided", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Get old receipt path for cleanup
+	oldReceiptPath, _ := h.db.GetExpenseReceiptPath(id)
+
+	// Save new file
+	storedPath, err := h.files.Save(header.Filename, file)
+	if err != nil {
+		l.Error("receipt_upload_save_error", "error", err.Error())
+		http.Error(w, "Failed to save file", http.StatusInternalServerError)
+		return
+	}
+
+	// Update database
+	if err := h.db.UpdateExpenseReceipt(id, storedPath); err != nil {
+		h.files.Delete(storedPath) // Clean up on error
+		l.Error("receipt_upload_db_error", "error", err.Error())
+		http.Error(w, "Failed to update expense", http.StatusInternalServerError)
+		return
+	}
+
+	// Delete old file after successful update
+	if oldReceiptPath != "" {
+		h.files.Delete(oldReceiptPath)
+	}
+
+	l.Info("receipt_uploaded", "expense_id", id)
+	http.Redirect(w, r, "/expenses", http.StatusFound)
+}
+
+// ExpensesDeleteReceipt removes the receipt from an expense
+func (h *Handler) ExpensesDeleteReceipt(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+
+	receiptPath, err := h.db.GetExpenseReceiptPath(id)
+	if err != nil || receiptPath == "" {
+		http.Redirect(w, r, fmt.Sprintf("/expenses/%d/edit", id), http.StatusFound)
+		return
+	}
+
+	// Clear receipt path in database
+	if err := h.db.UpdateExpenseReceipt(id, ""); err != nil {
+		l.Error("receipt_delete_db_error", "error", err.Error())
+		http.Redirect(w, r, fmt.Sprintf("/expenses/%d/edit", id), http.StatusFound)
+		return
+	}
+
+	// Delete the file
+	h.files.Delete(receiptPath)
+	l.Info("receipt_deleted", "expense_id", id)
+	http.Redirect(w, r, fmt.Sprintf("/expenses/%d/edit", id), http.StatusFound)
 }
 
 // Payroll handlers
@@ -1088,6 +1258,45 @@ func (h *Handler) ReconciliationsReparse(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, "/bank-statements", http.StatusFound)
 }
 
+// ReconciliationsDelete deletes a bank statement and all its transactions
+func (h *Handler) ReconciliationsDelete(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromContext(r.Context())
+
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	// Get the reconciliation to find the file path
+	recon, err := h.db.GetReconciliation(id)
+	if err != nil {
+		l.Error("reconciliation_delete_get_error", "id", id, "error", err.Error())
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	// Delete the PDF file
+	if recon.FilePath != "" {
+		h.files.Delete(recon.FilePath)
+	}
+
+	// Delete all bank transactions for this reconciliation
+	if err := h.db.DeleteBankTransactions(id); err != nil {
+		l.Error("reconciliation_delete_txns_error", "id", id, "error", err.Error())
+	}
+
+	// Delete the reconciliation record
+	if err := h.db.DeleteReconciliation(id); err != nil {
+		l.Error("reconciliation_delete_error", "id", id, "error", err.Error())
+		http.Redirect(w, r, "/bank-statements", http.StatusFound)
+		return
+	}
+
+	l.Info("reconciliation_deleted", "id", id)
+	http.Redirect(w, r, "/bank-statements", http.StatusFound)
+}
+
 // ReconciliationsReview shows the reconciliation review page
 func (h *Handler) ReconciliationsReview(w http.ResponseWriter, r *http.Request) {
 	l := logger.FromContext(r.Context())
@@ -1241,6 +1450,11 @@ func (h *Handler) ReconciliationsIgnore(w http.ResponseWriter, r *http.Request) 
 func (h *Handler) ReconciliationsCreateExpense(w http.ResponseWriter, r *http.Request) {
 	l := logger.FromContext(r.Context())
 
+	// Parse multipart form for file upload (5MB limit)
+	if err := r.ParseMultipartForm(5 << 20); err != nil {
+		l.Error("create_expense_parse_form_error", "error", err.Error())
+	}
+
 	reconID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.Redirect(w, r, "/bank-statements", http.StatusFound)
@@ -1299,8 +1513,24 @@ func (h *Handler) ReconciliationsCreateExpense(w http.ResponseWriter, r *http.Re
 		Notes:       fmt.Sprintf("Created from bank statement: %s", txn.Description),
 	}
 
+	// Handle receipt file upload
+	file, header, fileErr := r.FormFile("receipt")
+	if fileErr == nil {
+		defer file.Close()
+		storedPath, saveErr := h.files.Save(header.Filename, file)
+		if saveErr != nil {
+			l.Error("create_expense_receipt_save_error", "error", saveErr.Error())
+		} else {
+			expense.ReceiptPath = storedPath
+		}
+	}
+
 	expenseID, err := h.db.CreateExpense(expense)
 	if err != nil {
+		// Clean up uploaded file on error
+		if expense.ReceiptPath != "" {
+			h.files.Delete(expense.ReceiptPath)
+		}
 		l.Error("create_expense_error", "error", err.Error())
 		http.Redirect(w, r, fmt.Sprintf("/bank-statements/%d", reconID), http.StatusFound)
 		return

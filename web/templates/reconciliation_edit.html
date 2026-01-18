@@ -26,7 +26,10 @@
 	<h1>Bank Statement: {{.Reconciliation.StatementDateDisplay}}</h1>
 	<div style="display: flex; gap: 0.5rem;">
 		<form action="/bank-statements/{{.Reconciliation.ID}}/reparse" method="POST" style="margin: 0;">
-			<button type="submit" class="btn btn-secondary" onclick="return confirm('Re-parse the statement? This will delete existing transactions and re-import them.')">Reparse Statement</button>
+			<button type="submit" class="btn btn-secondary" onclick="return confirm('Re-parse the statement? This will delete existing transactions and re-import them.')">Reparse</button>
+		</form>
+		<form action="/bank-statements/{{.Reconciliation.ID}}/delete" method="POST" style="margin: 0;">
+			<button type="submit" class="btn btn-danger" onclick="return confirm('Delete this bank statement and all its transactions? This cannot be undone.')">Delete</button>
 		</form>
 		<a href="/bank-statements" class="btn btn-secondary">Back</a>
 	</div>
@@ -297,7 +300,7 @@
 	<div class="modal-content">
 		<h3>Create Expense from Transaction</h3>
 		<p id="create-modal-desc"></p>
-		<form action="/bank-statements/{{.Reconciliation.ID}}/create-expense" method="POST">
+		<form action="/bank-statements/{{.Reconciliation.ID}}/create-expense" method="POST" enctype="multipart/form-data">
 			<input type="hidden" name="transaction_id" id="create-txn-id">
 			<div class="form-group">
 				<label for="vendor_id">Vendor</label>
@@ -307,6 +310,10 @@
 					<option value="{{.ID}}">{{.Name}}</option>
 					{{end}}
 				</select>
+			</div>
+			<div class="form-group">
+				<label for="create-receipt">Receipt (optional)</label>
+				<input type="file" id="create-receipt" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.gif">
 			</div>
 			<div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
 				<button type="button" class="btn btn-secondary" onclick="closeCreateModal()">Cancel</button>

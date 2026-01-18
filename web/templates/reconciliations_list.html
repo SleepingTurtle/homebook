@@ -143,7 +143,7 @@ document.getElementById('upload-form').addEventListener('submit', async function
 			if (status.status === 'completed') {
 				progressText.textContent = 'Done! Redirecting...';
 				progressBar.style.width = '100%';
-				window.location.href = '/bank-statements/' + reconId + '/review';
+				window.location.href = '/bank-statements/' + reconId;
 				return;
 			} else if (status.status === 'failed') {
 				throw new Error('Parsing failed: ' + status.result);

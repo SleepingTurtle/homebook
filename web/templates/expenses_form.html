@@ -7,7 +7,7 @@
 <div class="error">{{.Error}}</div>
 {{end}}
 
-<form action="{{if .Expense.ID}}/expenses/{{.Expense.ID}}{{else}}/expenses{{end}}" method="POST">
+<form action="{{if .Expense.ID}}/expenses/{{.Expense.ID}}{{else}}/expenses{{end}}" method="POST" enctype="multipart/form-data">
 	<div class="form-group">
 		<label for="date">Date</label>
 		<input type="date" id="date" name="date" value="{{.Expense.Date}}" required>
@@ -77,6 +77,18 @@
 		<textarea id="notes" name="notes">{{.Expense.Notes}}</textarea>
 	</div>
 
+	<div class="form-group">
+		<label for="receipt">Receipt (optional)</label>
+		{{if .Expense.ReceiptPath}}
+		<div style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+			<a href="/expenses/{{.Expense.ID}}/receipt" target="_blank" class="btn btn-secondary btn-small">View Current Receipt</a>
+			<button type="button" class="btn btn-danger btn-small" onclick="deleteReceipt({{.Expense.ID}})">Remove</button>
+		</div>
+		<small style="color: #6b7280;">Upload a new file to replace the current receipt</small>
+		{{end}}
+		<input type="file" id="receipt" name="receipt" accept=".pdf,.jpg,.jpeg,.png,.gif">
+	</div>
+
 	<div style="display: flex; gap: 0.5rem;">
 		<button type="submit" class="btn btn-primary">{{if .Expense.ID}}Update{{else}}Save{{end}}</button>
 		<a href="/expenses" class="btn btn-secondary">Cancel</a>
@@ -87,5 +99,23 @@
 <form action="/expenses/{{.Expense.ID}}/delete" method="POST" style="margin-top: 2rem;" onsubmit="return confirm('Delete this expense?')">
 	<button type="submit" class="btn btn-danger">Delete This Expense</button>
 </form>
+
+<script>
+function deleteReceipt(expenseId) {
+	if (!confirm('Remove this receipt?')) return;
+
+	fetch('/expenses/' + expenseId + '/receipt/delete', {
+		method: 'POST'
+	}).then(function(response) {
+		if (response.ok) {
+			window.location.reload();
+		} else {
+			alert('Failed to remove receipt');
+		}
+	}).catch(function(err) {
+		alert('Error: ' + err.message);
+	});
+}
+</script>
 {{end}}
 {{template "footer" .}}
