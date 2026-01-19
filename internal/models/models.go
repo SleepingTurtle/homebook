@@ -68,17 +68,17 @@ type Employee struct {
 }
 
 type DailySale struct {
-	ID         int64
-	Date       string // YYYY-MM-DD
-	Shift      string // "breakfast", "lunch", "dinner"
-	NetSales   float64
-	Taxes      float64
-	CreditCard float64
+	ID          int64
+	Date        string // YYYY-MM-DD
+	Shift       string // "breakfast", "lunch", "dinner"
+	NetSales    float64
+	Taxes       float64
+	CreditCard  float64
 	CashReceipt float64
-	CashOnHand float64
-	Notes      string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	CashOnHand  float64
+	Notes       string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // Variance calculates Cash On Hand - Expected Cash
@@ -154,7 +154,7 @@ type PayrollWeek struct {
 
 type Payroll struct {
 	ID            int64
-	WeekID        int64  // references payroll_weeks.id
+	WeekID        int64 // references payroll_weeks.id
 	EmployeeID    int64
 	EmployeeName  string // populated by JOIN
 	PeriodStart   string // YYYY-MM-DD - populated by JOIN with payroll_weeks
@@ -207,13 +207,13 @@ type Session struct {
 
 // Dashboard aggregates
 type DashboardData struct {
-	TodaySalesTotal      float64
-	TodayExpensesTotal   float64
-	UnpaidExpensesTotal  float64
-	UnpaidExpensesCount  int
-	RecentSalesGrouped   []DateGroup
-	RecentSalesTotal     float64
-	UnpaidExpenses       []Expense
+	TodaySalesTotal     float64
+	TodayExpensesTotal  float64
+	UnpaidExpensesTotal float64
+	UnpaidExpensesCount int
+	RecentSalesGrouped  []DateGroup
+	RecentSalesTotal    float64
+	UnpaidExpenses      []Expense
 }
 
 // Filter structs for list queries
@@ -249,22 +249,22 @@ type SalesFilter struct {
 
 // DateGroup represents a single date's sales (for collapsing by date)
 type DateGroup struct {
-	Date      string          // Display date (MM-DD-YYYY)
-	RawDate   string          // Raw date for sorting (YYYY-MM-DD)
-	Total     float64         // Sum of NetSales for this date
-	Sales     []DailySale     // Individual shift entries
-	Delivery  *DeliverySales  // Delivery sales for this date (nil if none)
-	Collapsed bool            // Whether this date row is collapsed
+	Date      string         // Display date (MM-DD-YYYY)
+	RawDate   string         // Raw date for sorting (YYYY-MM-DD)
+	Total     float64        // Sum of NetSales for this date
+	Sales     []DailySale    // Individual shift entries
+	Delivery  *DeliverySales // Delivery sales for this date (nil if none)
+	Collapsed bool           // Whether this date row is collapsed
 }
 
 // SalesGroup represents a group of sales with a label and total
 type SalesGroup struct {
-	Label      string          // "Today", "This Week", "January 2025", "2024"
-	Total      float64         // Sum of NetSales for the group
-	Sales      []DailySale     // Individual entries (used for Today)
-	DateGroups []DateGroup     // Grouped by date (used for non-Today sections)
-	Delivery   *DeliverySales  // Delivery data for Today section
-	Collapsed  bool            // Default collapsed state for UI
+	Label      string         // "Today", "This Week", "January 2025", "2024"
+	Total      float64        // Sum of NetSales for the group
+	Sales      []DailySale    // Individual entries (used for Today)
+	DateGroups []DateGroup    // Grouped by date (used for non-Today sections)
+	Delivery   *DeliverySales // Delivery data for Today section
+	Collapsed  bool           // Default collapsed state for UI
 }
 
 // GroupedSalesData organizes sales into time-based groups
@@ -278,8 +278,8 @@ type GroupedSalesData struct {
 // BankReconciliation represents a bank statement reconciliation
 type BankReconciliation struct {
 	ID                   int64
-	StatementDate        string  // YYYY-MM-DD
-	StatementDateDisplay string  // formatted for display
+	StatementDate        string // YYYY-MM-DD
+	StatementDateDisplay string // formatted for display
 	StartingBalance      float64
 	EndingBalance        float64
 	Status               string // pending, parsing, parsed, reconciling, completed

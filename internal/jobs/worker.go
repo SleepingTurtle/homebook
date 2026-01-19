@@ -14,11 +14,11 @@ type JobHandler func(ctx context.Context, job *models.Job, db *database.DB) erro
 
 // Worker processes background jobs from the queue
 type Worker struct {
-	db       *database.DB
-	handlers map[string]JobHandler
-	stop     chan struct{}
-	done     chan struct{}
-	logger   *slog.Logger
+	db           *database.DB
+	handlers     map[string]JobHandler
+	stop         chan struct{}
+	done         chan struct{}
+	logger       *slog.Logger
 	pollInterval time.Duration
 }
 
