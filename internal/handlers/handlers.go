@@ -93,13 +93,13 @@ func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	todayExpensesTotal, _ := h.db.GetTodayExpensesTotal()
 
 	data := models.DashboardData{
-		TodaySalesTotal:      todaySalesTotal,
-		TodayExpensesTotal:   todayExpensesTotal,
-		UnpaidExpensesTotal:  expenseTotal,
-		UnpaidExpensesCount:  len(unpaidExpenses),
-		RecentSalesGrouped:   recentSalesGrouped,
-		RecentSalesTotal:     recentSalesTotal,
-		UnpaidExpenses:       unpaidExpenses,
+		TodaySalesTotal:     todaySalesTotal,
+		TodayExpensesTotal:  todayExpensesTotal,
+		UnpaidExpensesTotal: expenseTotal,
+		UnpaidExpensesCount: len(unpaidExpenses),
+		RecentSalesGrouped:  recentSalesGrouped,
+		RecentSalesTotal:    recentSalesTotal,
+		UnpaidExpenses:      unpaidExpenses,
 	}
 
 	h.render(w, r, "dashboard.html", map[string]interface{}{

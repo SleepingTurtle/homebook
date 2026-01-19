@@ -112,11 +112,11 @@ func ParseStatementHandler(fileStorePath string) JobHandler {
 
 		// Set result with summary
 		resultJSON, _ := json.Marshal(map[string]any{
-			"transactions_count":  totalTxns,
-			"matched_count":       matched,
-			"beginning_balance":   result.BeginningBalance,
-			"ending_balance":      result.EndingBalance,
-			"account_last_four":   result.AccountLastFour,
+			"transactions_count": totalTxns,
+			"matched_count":      matched,
+			"beginning_balance":  result.BeginningBalance,
+			"ending_balance":     result.EndingBalance,
+			"account_last_four":  result.AccountLastFour,
 		})
 		db.CompleteJob(job.ID, string(resultJSON))
 

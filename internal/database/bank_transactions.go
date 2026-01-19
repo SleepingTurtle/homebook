@@ -230,17 +230,17 @@ func (db *DB) DeleteBankTransactions(reconciliationID int64) error {
 
 // GetReconciliationStats returns summary statistics for a reconciliation
 type ReconciliationStats struct {
-	TotalTransactions    int
-	TotalCredits         float64
-	TotalDebits          float64
-	MatchedCount         int
-	UnmatchedCount       int
-	IgnoredCount         int
-	CreatedCount         int
-	ElectronicDeposits   float64
-	ElectronicPayments   float64
-	ChecksPaid           float64
-	ServiceFees          float64
+	TotalTransactions  int
+	TotalCredits       float64
+	TotalDebits        float64
+	MatchedCount       int
+	UnmatchedCount     int
+	IgnoredCount       int
+	CreatedCount       int
+	ElectronicDeposits float64
+	ElectronicPayments float64
+	ChecksPaid         float64
+	ServiceFees        float64
 }
 
 func (db *DB) GetReconciliationStats(reconciliationID int64) (*ReconciliationStats, error) {

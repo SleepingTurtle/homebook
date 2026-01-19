@@ -1,4 +1,4 @@
-.PHONY: build run dev watch docker-up docker-down backup clean seed repopulate release tailwind-install tailwind-build tailwind-watch
+.PHONY: build run dev watch docker-up docker-down backup clean seed repopulate release tailwind-install tailwind-build tailwind-watch fmt lint setup
 
 # Version info
 VERSION ?= $(shell cat VERSION 2>/dev/null || echo "dev")
@@ -125,3 +125,21 @@ tailwind-build: tailwind-install
 # Watch Tailwind CSS for changes
 tailwind-watch: tailwind-install
 	./tailwindcss -i ./web/static/tailwind.css -o ./web/static/tailwind-out.css --watch
+
+# Format Go code
+fmt:
+	gofmt -w .
+
+# Lint Go code
+lint:
+	go vet ./...
+	@if [ -n "$$(gofmt -l .)" ]; then \
+		echo "The following files need formatting:"; \
+		gofmt -l .; \
+		exit 1; \
+	fi
+
+# Setup development environment
+setup:
+	git config core.hooksPath .githooks
+	@echo "Git hooks configured"

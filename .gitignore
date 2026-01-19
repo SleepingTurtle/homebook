@@ -1,4 +1,7 @@
-server
+# Compiled binaries
+/homebooks
+/server
+
 data/
 *.db
 tmp/
