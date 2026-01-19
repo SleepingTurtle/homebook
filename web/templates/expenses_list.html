@@ -1,121 +1,152 @@
 {{template "header" .}}
-<div class="page-header">
-	<h1>Receipts</h1>
-	<div class="page-header-actions">
-		<a href="/bank-statements" class="btn btn-secondary">Bank Statements</a>
-		<a href="/vendors" class="btn btn-secondary">Vendors</a>
-		<a href="/expenses/new" class="btn btn-primary">Add Receipt</a>
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+	<h1 class="text-2xl font-semibold text-gray-900">Receipts</h1>
+	<div class="flex flex-wrap gap-2">
+		<a href="/bank-statements" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50">Bank Statements</a>
+		<a href="/vendors" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50">Vendors</a>
+		<a href="/expenses/new" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">Add Receipt</a>
 	</div>
 </div>
 
-<div class="sidebar-layout">
-	<aside class="sidebar">
-		<form action="/expenses" method="GET" class="sidebar-filter">
-			<h3 class="sidebar-title">Filters</h3>
-			<div class="form-group">
-				<label for="start_date">Start Date</label>
-				<input type="date" id="start_date" name="start_date" value="{{.Filter.StartDate}}">
-			</div>
-			<div class="form-group">
-				<label for="end_date">End Date</label>
-				<input type="date" id="end_date" name="end_date" value="{{.Filter.EndDate}}">
-			</div>
-			<div class="form-group">
-				<label for="vendor_id">Vendor</label>
-				<select id="vendor_id" name="vendor_id">
-					<option value="">All Vendors</option>
-					{{range .Vendors}}
-					<option value="{{.ID}}" {{if eq $.Filter.VendorID .ID}}selected{{end}}>{{.Name}}</option>
-					{{end}}
-				</select>
-			</div>
-			<div class="form-group">
-				<label>Status</label>
-				<div class="sidebar-toggle-group">
-					<input type="radio" id="status-all" name="status" value="" {{if eq .Filter.Status ""}}checked{{end}}>
-					<label for="status-all">All</label>
-					<input type="radio" id="status-unpaid" name="status" value="not_paid" {{if eq .Filter.Status "not_paid"}}checked{{end}}>
-					<label for="status-unpaid">Unpaid</label>
-					<input type="radio" id="status-paid" name="status" value="paid" {{if eq .Filter.Status "paid"}}checked{{end}}>
-					<label for="status-paid">Paid</label>
+<div class="flex flex-col lg:flex-row gap-6">
+	<!-- Sidebar Filters -->
+	<aside class="lg:w-64 flex-shrink-0">
+		<form action="/expenses" method="GET" class="bg-white border border-gray-200 rounded-lg p-5">
+			<h3 class="text-sm font-semibold text-gray-900 mb-4">Filters</h3>
+
+			<div class="space-y-4">
+				<div>
+					<label for="start_date" class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+					<input type="date" id="start_date" name="start_date" value="{{.Filter.StartDate}}"
+						class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+				</div>
+
+				<div>
+					<label for="end_date" class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+					<input type="date" id="end_date" name="end_date" value="{{.Filter.EndDate}}"
+						class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+				</div>
+
+				<div>
+					<label for="vendor_id" class="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
+					<select id="vendor_id" name="vendor_id"
+						class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+						<option value="">All Vendors</option>
+						{{range .Vendors}}
+						<option value="{{.ID}}" {{if eq $.Filter.VendorID .ID}}selected{{end}}>{{.Name}}</option>
+						{{end}}
+					</select>
+				</div>
+
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+					<div class="flex rounded-md border border-gray-300 overflow-hidden">
+						<label class="flex-1 text-center">
+							<input type="radio" name="status" value="" {{if eq .Filter.Status ""}}checked{{end}} class="sr-only peer">
+							<span class="block py-1.5 text-xs font-medium cursor-pointer peer-checked:bg-blue-600 peer-checked:text-white text-gray-600 hover:bg-gray-50">All</span>
+						</label>
+						<label class="flex-1 text-center border-l border-gray-300">
+							<input type="radio" name="status" value="not_paid" {{if eq .Filter.Status "not_paid"}}checked{{end}} class="sr-only peer">
+							<span class="block py-1.5 text-xs font-medium cursor-pointer peer-checked:bg-blue-600 peer-checked:text-white text-gray-600 hover:bg-gray-50">Unpaid</span>
+						</label>
+						<label class="flex-1 text-center border-l border-gray-300">
+							<input type="radio" name="status" value="paid" {{if eq .Filter.Status "paid"}}checked{{end}} class="sr-only peer">
+							<span class="block py-1.5 text-xs font-medium cursor-pointer peer-checked:bg-blue-600 peer-checked:text-white text-gray-600 hover:bg-gray-50">Paid</span>
+						</label>
+					</div>
+				</div>
+
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-2">Categories</label>
+					<div class="flex flex-wrap gap-1.5">
+						{{range .Categories}}
+						<label class="inline-flex">
+							<input type="checkbox" name="category" value="{{.}}" {{if $.Filter.HasCategory .}}checked{{end}} class="sr-only peer">
+							<span class="px-2.5 py-1 text-xs font-medium rounded-full cursor-pointer border border-gray-300 text-gray-600 peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 hover:border-gray-400">{{.}}</span>
+						</label>
+						{{end}}
+					</div>
 				</div>
 			</div>
-			<div class="form-group">
-				<label>Categories</label>
-				<div class="sidebar-category-toggles">
-					{{range .Categories}}
-					<input type="checkbox" id="cat-filter-{{.}}" name="category" value="{{.}}" {{if $.Filter.HasCategory .}}checked{{end}}>
-					<label for="cat-filter-{{.}}">{{.}}</label>
-					{{end}}
-				</div>
-			</div>
-			<div class="sidebar-actions">
-				<button type="submit" class="btn btn-primary">Apply</button>
-				<a href="/expenses" class="btn btn-secondary">Clear</a>
+
+			<div class="flex gap-2 mt-5 pt-4 border-t border-gray-200">
+				<button type="submit" class="flex-1 px-3 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">Apply</button>
+				<a href="/expenses" class="flex-1 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 text-center">Clear</a>
 			</div>
 		</form>
 	</aside>
 
-	<main class="main-content">
+	<!-- Main Content -->
+	<main class="flex-1 min-w-0">
 		{{if .Expenses}}
-		<table>
-			<thead>
-				<tr>
-					<th>Date</th>
-					<th>Vendor</th>
-					<th class="money">Amount</th>
-					<th class="hide-mobile">Invoice #</th>
-					<th class="hide-mobile">Due Date</th>
-					<th>Status</th>
-					<th class="hide-mobile">Payment</th>
-					<th class="hide-mobile">Receipt</th>
-					<th class="actions"></th>
-				</tr>
-			</thead>
-			<tbody>
-				{{range .Expenses}}
-				<tr>
-					<td>{{.Date}}</td>
-					<td><a href="/vendors/{{.VendorID}}">{{.VendorName}}</a></td>
-					<td class="money">${{printf "%.2f" .Amount}}</td>
-					<td class="hide-mobile">{{.InvoiceNumber}}</td>
-					<td class="hide-mobile">{{.DueDate}}</td>
-					<td>
-						{{if eq .Status "paid"}}
-						<span class="status status-paid">Paid</span>
-						{{else}}
-						<span class="status status-unpaid">Unpaid</span>
+		<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="border-b border-gray-200 bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+							<th class="text-left py-3 px-4 font-medium">Date</th>
+							<th class="text-left py-3 px-2 font-medium">Vendor</th>
+							<th class="text-right py-3 px-2 font-medium">Amount</th>
+							<th class="text-left py-3 px-2 font-medium hidden md:table-cell">Invoice #</th>
+							<th class="text-left py-3 px-2 font-medium hidden md:table-cell">Due Date</th>
+							<th class="text-center py-3 px-2 font-medium">Status</th>
+							<th class="text-left py-3 px-2 font-medium hidden md:table-cell">Payment</th>
+							<th class="text-center py-3 px-2 font-medium hidden md:table-cell">Receipt</th>
+							<th class="py-3 px-4"></th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-gray-100">
+						{{range .Expenses}}
+						<tr class="hover:bg-gray-50">
+							<td class="py-3 px-4 text-gray-900">{{.Date}}</td>
+							<td class="py-3 px-2">
+								<a href="/vendors/{{.VendorID}}" class="text-blue-600 hover:text-blue-800">{{.VendorName}}</a>
+							</td>
+							<td class="py-3 px-2 text-right text-gray-900 font-medium">${{printf "%.2f" .Amount}}</td>
+							<td class="py-3 px-2 text-gray-600 hidden md:table-cell">{{.InvoiceNumber}}</td>
+							<td class="py-3 px-2 text-gray-600 hidden md:table-cell">{{.DueDate}}</td>
+							<td class="py-3 px-2 text-center">
+								{{if eq .Status "paid"}}
+								<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">Paid</span>
+								{{else}}
+								<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Unpaid</span>
+								{{end}}
+							</td>
+							<td class="py-3 px-2 text-gray-600 hidden md:table-cell">{{.PaymentType}} {{if .CheckNumber}}#{{.CheckNumber}}{{end}}</td>
+							<td class="py-3 px-2 text-center hidden md:table-cell">
+								{{if .ReceiptPath}}
+								<a href="/expenses/{{.ID}}/receipt" target="_blank" class="text-green-600 hover:text-green-800 text-xs font-medium">View</a>
+								{{else}}
+								<label class="cursor-pointer">
+									<input type="file" class="receipt-upload-input hidden" data-expense-id="{{.ID}}" accept=".pdf,.jpg,.jpeg,.png,.gif">
+									<span class="text-gray-400 hover:text-gray-600 text-xs">Upload</span>
+								</label>
+								{{end}}
+							</td>
+							<td class="py-3 px-4 text-right">
+								<div class="flex justify-end gap-2">
+									{{if eq .Status "not_paid"}}
+									<a href="/expenses/{{.ID}}/pay" class="px-2.5 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">Mark Paid</a>
+									{{end}}
+									<a href="/expenses/{{.ID}}/edit" class="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 rounded text-xs font-medium hover:bg-gray-50">Edit</a>
+								</div>
+							</td>
+						</tr>
 						{{end}}
-					</td>
-					<td class="hide-mobile">{{.PaymentType}} {{if .CheckNumber}}#{{.CheckNumber}}{{end}}</td>
-					<td class="hide-mobile">
-						{{if .ReceiptPath}}
-						<a href="/expenses/{{.ID}}/receipt" target="_blank" title="View Receipt" style="color: #16a34a;">View</a>
-						{{else}}
-						<label class="receipt-upload-label" title="Upload Receipt">
-							<input type="file" class="receipt-upload-input" data-expense-id="{{.ID}}" accept=".pdf,.jpg,.jpeg,.png,.gif" style="display: none;">
-							<span style="color: #9ca3af; cursor: pointer;">Upload</span>
-						</label>
-						{{end}}
-					</td>
-					<td class="actions">
-						{{if eq .Status "not_paid"}}
-						<a href="/expenses/{{.ID}}/pay" class="btn btn-success btn-small">Mark Paid</a>
-						{{end}}
-						<a href="/expenses/{{.ID}}/edit" class="btn btn-secondary btn-small">Edit</a>
-					</td>
-				</tr>
-				{{end}}
-				<tr class="totals-row">
-					<td colspan="2">Total</td>
-					<td class="money">${{printf "%.2f" .Total}}</td>
-					<td colspan="6"></td>
-				</tr>
-			</tbody>
-		</table>
+					</tbody>
+					<tfoot>
+						<tr class="bg-gray-50 border-t border-gray-200">
+							<td class="py-3 px-4 font-semibold text-gray-900" colspan="2">Total</td>
+							<td class="py-3 px-2 text-right font-bold text-gray-900">${{printf "%.2f" .Total}}</td>
+							<td colspan="6"></td>
+						</tr>
+					</tfoot>
+				</table>
+			</div>
+		</div>
 
 		<script>
-		// Quick receipt upload handler
 		document.querySelectorAll('.receipt-upload-input').forEach(function(input) {
 			input.addEventListener('change', function() {
 				if (this.files.length === 0) return;
@@ -123,7 +154,6 @@
 				var formData = new FormData();
 				formData.append('receipt', this.files[0]);
 
-				// Show uploading state
 				var label = this.parentElement.querySelector('span');
 				var originalText = label.textContent;
 				label.textContent = 'Uploading...';
@@ -146,8 +176,11 @@
 		});
 		</script>
 		{{else}}
-		<p class="empty-state">No receipts found. Add one using the button above.</p>
+		<div class="bg-white border border-gray-200 rounded-lg px-6 py-12 text-center">
+			<p class="text-gray-500">No receipts found. Add one using the button above.</p>
+		</div>
 		{{end}}
 	</main>
 </div>
+
 {{template "footer" .}}

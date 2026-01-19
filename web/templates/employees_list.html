@@ -1,75 +1,93 @@
 {{template "header" .}}
-<div class="page-header">
-	<h1>Employees</h1>
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+	<h1 class="text-2xl font-semibold text-gray-900">Employees</h1>
+	<a href="/payroll" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50">Back to Payroll</a>
 </div>
 
 {{if .Error}}
-<div class="error">{{.Error}}</div>
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">{{.Error}}</div>
 {{end}}
 
 {{if .Success}}
-<div class="success">{{.Success}}</div>
+<div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 text-sm">{{.Success}}</div>
 {{end}}
 
-<form action="/employees" method="POST" class="inline-form">
-	<div class="form-group">
-		<label for="name">New Employee Name</label>
-		<input type="text" id="name" name="name" required>
-	</div>
-	<div class="form-group">
-		<label for="hourly_rate">Hourly Rate</label>
-		<input type="number" id="hourly_rate" name="hourly_rate" step="0.01" min="0" required>
-	</div>
-	<div class="form-group">
-		<label for="payment_method">Payment Method</label>
-		<select id="payment_method" name="payment_method">
-			<option value="cash">Cash</option>
-			<option value="check">Check</option>
-		</select>
-	</div>
-	<button type="submit" class="btn btn-primary">Add Employee</button>
-</form>
+<!-- Add Employee Form -->
+<div class="bg-white border border-gray-200 rounded-lg p-5 mb-6">
+	<h2 class="text-lg font-semibold text-gray-900 mb-4">Add New Employee</h2>
+	<form action="/employees" method="POST">
+		<div class="flex gap-4 items-end flex-wrap">
+			<div class="flex-1 min-w-[150px]">
+				<label for="name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+				<input type="text" id="name" name="name" required
+					class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+			</div>
+			<div class="w-32">
+				<label for="hourly_rate" class="block text-sm font-medium text-gray-700 mb-1">Hourly Rate</label>
+				<input type="number" id="hourly_rate" name="hourly_rate" step="0.01" min="0" required
+					class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+			</div>
+			<div class="w-36">
+				<label for="payment_method" class="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+				<select id="payment_method" name="payment_method"
+					class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+					<option value="cash">Cash</option>
+					<option value="check">Check</option>
+				</select>
+			</div>
+			<button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">Add Employee</button>
+		</div>
+	</form>
+</div>
 
 {{if .Employees}}
-<table>
-	<thead>
-		<tr>
-			<th>Name</th>
-			<th class="money">Hourly Rate</th>
-			<th>Payment Method</th>
-			<th>Status</th>
-			<th class="actions"></th>
-		</tr>
-	</thead>
-	<tbody>
-		{{range .Employees}}
-		<tr>
-			<td>{{.Name}}</td>
-			<td class="money">${{printf "%.2f" .HourlyRate}}</td>
-			<td>{{.PaymentMethod}}</td>
-			<td>
-				{{if .Active}}
-				<span class="status status-paid">Active</span>
-				{{else}}
-				<span class="status status-unpaid">Inactive</span>
+<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+	<div class="overflow-x-auto">
+		<table class="w-full text-sm">
+			<thead>
+				<tr class="border-b border-gray-200 bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+					<th class="text-left py-3 px-4 font-medium">Name</th>
+					<th class="text-right py-3 px-2 font-medium">Hourly Rate</th>
+					<th class="text-left py-3 px-2 font-medium">Payment Method</th>
+					<th class="text-center py-3 px-2 font-medium">Status</th>
+					<th class="py-3 px-4"></th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-100">
+				{{range .Employees}}
+				<tr class="hover:bg-gray-50">
+					<td class="py-3 px-4 text-gray-900 font-medium">{{.Name}}</td>
+					<td class="py-3 px-2 text-right text-gray-600">${{printf "%.2f" .HourlyRate}}</td>
+					<td class="py-3 px-2 text-gray-600 capitalize">{{.PaymentMethod}}</td>
+					<td class="py-3 px-2 text-center">
+						{{if .Active}}
+						<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">Active</span>
+						{{else}}
+						<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Inactive</span>
+						{{end}}
+					</td>
+					<td class="py-3 px-4 text-right">
+						{{if .Active}}
+						<form action="/employees/{{.ID}}/deactivate" method="POST" class="inline" onsubmit="return confirm('Deactivate this employee?')">
+							<button type="submit" class="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 rounded text-xs font-medium hover:bg-gray-50">Deactivate</button>
+						</form>
+						{{else}}
+						<form action="/employees/{{.ID}}/reactivate" method="POST" class="inline">
+							<button type="submit" class="px-2.5 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">Reactivate</button>
+						</form>
+						{{end}}
+					</td>
+				</tr>
 				{{end}}
-			</td>
-			<td class="actions">
-				{{if .Active}}
-				<form action="/employees/{{.ID}}/deactivate" method="POST" style="display:inline" onsubmit="return confirm('Deactivate this employee?')">
-					<button type="submit" class="btn btn-secondary btn-small">Deactivate</button>
-				</form>
-				{{else}}
-				<form action="/employees/{{.ID}}/reactivate" method="POST" style="display:inline">
-					<button type="submit" class="btn btn-success btn-small">Reactivate</button>
-				</form>
-				{{end}}
-			</td>
-		</tr>
-		{{end}}
-	</tbody>
-</table>
+			</tbody>
+		</table>
+	</div>
+</div>
 {{else}}
-<p class="empty-state">No employees yet. Add one above.</p>
+<div class="bg-white border border-gray-200 rounded-lg px-6 py-12 text-center">
+	<p class="text-gray-500">No employees yet. Add one above.</p>
+</div>
 {{end}}
+
 {{template "footer" .}}

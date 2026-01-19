@@ -1,51 +1,63 @@
 {{template "header" .}}
-<div class="page-header">
-	<h1>Vendors</h1>
-	<div style="display: flex; gap: 0.5rem;">
-		<a href="/vendors/new" class="btn btn-primary">Add Vendor</a>
-		<a href="/expenses" class="btn btn-secondary">Back to Receipts</a>
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+	<h1 class="text-2xl font-semibold text-gray-900">Vendors</h1>
+	<div class="flex gap-2">
+		<a href="/vendors/new" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">Add Vendor</a>
+		<a href="/expenses" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50">Back to Receipts</a>
 	</div>
 </div>
 
 {{if .Error}}
-<div class="error">{{.Error}}</div>
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">{{.Error}}</div>
 {{end}}
 
 {{if .Success}}
-<div class="success">{{.Success}}</div>
+<div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 text-sm">{{.Success}}</div>
 {{end}}
 
 {{if .Vendors}}
-<table>
-	<thead>
-		<tr>
-			<th>Name</th>
-			<th>Categories</th>
-			<th class="hide-mobile">Description</th>
-			<th class="actions"></th>
-		</tr>
-	</thead>
-	<tbody>
-		{{range .Vendors}}
-		<tr>
-			<td><a href="/vendors/{{.ID}}">{{.Name}}</a></td>
-			<td>
-				{{range .CategoryList}}
-				<span class="category-tag">{{.}}</span>
-				{{else}}
-				<span class="text-muted">-</span>
+<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+	<div class="overflow-x-auto">
+		<table class="w-full text-sm">
+			<thead>
+				<tr class="border-b border-gray-200 bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+					<th class="text-left py-3 px-4 font-medium">Name</th>
+					<th class="text-left py-3 px-2 font-medium">Categories</th>
+					<th class="text-left py-3 px-2 font-medium hidden md:table-cell">Description</th>
+					<th class="py-3 px-4"></th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-100">
+				{{range .Vendors}}
+				<tr class="hover:bg-gray-50">
+					<td class="py-3 px-4">
+						<a href="/vendors/{{.ID}}" class="text-blue-600 hover:text-blue-800 font-medium">{{.Name}}</a>
+					</td>
+					<td class="py-3 px-2">
+						{{range .CategoryList}}
+						<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700 mr-1">{{.}}</span>
+						{{else}}
+						<span class="text-gray-400">-</span>
+						{{end}}
+					</td>
+					<td class="py-3 px-2 text-gray-600 hidden md:table-cell">{{.Description}}</td>
+					<td class="py-3 px-4 text-right">
+						<div class="flex justify-end gap-2">
+							<a href="/vendors/{{.ID}}" class="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 rounded text-xs font-medium hover:bg-gray-50">View</a>
+							<a href="/vendors/{{.ID}}/edit" class="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 rounded text-xs font-medium hover:bg-gray-50">Edit</a>
+						</div>
+					</td>
+				</tr>
 				{{end}}
-			</td>
-			<td class="hide-mobile">{{.Description}}</td>
-			<td class="actions">
-				<a href="/vendors/{{.ID}}" class="btn btn-secondary btn-small">View</a>
-				<a href="/vendors/{{.ID}}/edit" class="btn btn-secondary btn-small">Edit</a>
-			</td>
-		</tr>
-		{{end}}
-	</tbody>
-</table>
+			</tbody>
+		</table>
+	</div>
+</div>
 {{else}}
-<p class="empty-state">No vendors yet. Add one using the button above.</p>
+<div class="bg-white border border-gray-200 rounded-lg px-6 py-12 text-center">
+	<p class="text-gray-500">No vendors yet. Add one using the button above.</p>
+</div>
 {{end}}
+
 {{template "footer" .}}

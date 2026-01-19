@@ -1,42 +1,44 @@
 {{template "header" .}}
-<div class="page-header">
-	<h1>{{if .Sale.ID}}Edit Sale{{else}}New Sale{{end}}</h1>
+
+<div class="flex items-center justify-between mb-6">
+	<h1 class="text-2xl font-semibold text-gray-900">{{if .Sale.ID}}Edit Sale{{else}}New Sale{{end}}</h1>
 </div>
 
 {{if .Error}}
-<div class="error">{{.Error}}</div>
+<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">{{.Error}}</div>
 {{end}}
 
-<form action="{{if .Sale.ID}}/sales/{{.Sale.ID}}{{else}}/sales{{end}}" method="POST" class="sales-form">
+<form action="{{if .Sale.ID}}/sales/{{.Sale.ID}}{{else}}/sales{{end}}" method="POST" class="space-y-6">
 	<!-- Date & Shift Row -->
-	<div class="form-section">
-		<div class="date-shift-row">
-			<div class="form-group date-group">
-				<label for="date">Date</label>
-				<input type="date" id="date" name="date" value="{{.Sale.Date}}" required>
+	<div class="bg-white border border-gray-200 rounded-lg p-6">
+		<div class="flex flex-wrap items-end gap-8">
+			<div class="w-44 flex-shrink-0">
+				<label for="date" class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+				<input type="date" id="date" name="date" value="{{.Sale.Date}}" required
+					class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
 			</div>
-			<div class="shift-group">
-				<label>Shift</label>
-				<div class="shift-selector">
-					<label class="shift-option">
-						<input type="radio" name="shift" value="breakfast" {{if eq .Sale.Shift "breakfast"}}checked{{end}} required>
-						<span class="shift-card">
-							<span class="shift-icon">&#9788;</span>
-							<span class="shift-name">Breakfast</span>
+			<div class="flex-1 min-w-[300px]">
+				<label class="block text-sm font-medium text-gray-700 mb-2">Shift</label>
+				<div class="flex gap-3">
+					<label class="shift-option flex-1 max-w-[140px] cursor-pointer">
+						<input type="radio" name="shift" value="breakfast" {{if eq .Sale.Shift "breakfast"}}checked{{end}} required class="sr-only peer">
+						<span class="flex flex-col items-center py-3 px-2 border-2 border-gray-200 rounded-lg bg-gray-50 transition-all peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:border-gray-300 hover:bg-white peer-disabled:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:bg-gray-100">
+							<span class="text-xl mb-0.5">&#9788;</span>
+							<span class="text-sm font-medium text-gray-700">Breakfast</span>
 						</span>
 					</label>
-					<label class="shift-option">
-						<input type="radio" name="shift" value="lunch" {{if eq .Sale.Shift "lunch"}}checked{{end}}>
-						<span class="shift-card">
-							<span class="shift-icon">&#9728;</span>
-							<span class="shift-name">Lunch</span>
+					<label class="shift-option flex-1 max-w-[140px] cursor-pointer">
+						<input type="radio" name="shift" value="lunch" {{if eq .Sale.Shift "lunch"}}checked{{end}} class="sr-only peer">
+						<span class="flex flex-col items-center py-3 px-2 border-2 border-gray-200 rounded-lg bg-gray-50 transition-all peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:border-gray-300 hover:bg-white peer-disabled:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:bg-gray-100">
+							<span class="text-xl mb-0.5">&#9728;</span>
+							<span class="text-sm font-medium text-gray-700">Lunch</span>
 						</span>
 					</label>
-					<label class="shift-option">
-						<input type="radio" name="shift" value="dinner" {{if eq .Sale.Shift "dinner"}}checked{{end}}>
-						<span class="shift-card">
-							<span class="shift-icon">&#9790;</span>
-							<span class="shift-name">Dinner</span>
+					<label class="shift-option flex-1 max-w-[140px] cursor-pointer">
+						<input type="radio" name="shift" value="dinner" {{if eq .Sale.Shift "dinner"}}checked{{end}} class="sr-only peer">
+						<span class="flex flex-col items-center py-3 px-2 border-2 border-gray-200 rounded-lg bg-gray-50 transition-all peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:border-gray-300 hover:bg-white peer-disabled:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:bg-gray-100">
+							<span class="text-xl mb-0.5">&#9790;</span>
+							<span class="text-sm font-medium text-gray-700">Dinner</span>
 						</span>
 					</label>
 				</div>
@@ -45,92 +47,97 @@
 	</div>
 
 	<!-- All Money Fields in a Grid -->
-	<div class="form-section">
-		<h3 class="form-section-title">Sales & Payments</h3>
-		<div class="money-grid">
-			<div class="form-group">
-				<label for="net_sales">Net Sales</label>
-				<div class="input-with-prefix">
-					<span class="input-prefix">$</span>
-					<input type="number" id="net_sales" name="net_sales" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.NetSales}}{{end}}" required>
+	<div class="bg-white border border-gray-200 rounded-lg p-6">
+		<h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-5">Sales & Payments</h3>
+		<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
+			<div>
+				<label for="net_sales" class="block text-sm font-medium text-gray-700 mb-1">Net Sales</label>
+				<div class="flex">
+					<span class="inline-flex items-center px-3 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md text-gray-500 font-medium">$</span>
+					<input type="number" id="net_sales" name="net_sales" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.NetSales}}{{end}}" required
+						class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-r-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
 				</div>
 			</div>
-			<div class="form-group">
-				<label for="taxes">Taxes</label>
-				<div class="input-with-prefix">
-					<span class="input-prefix">$</span>
-					<input type="number" id="taxes" name="taxes" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.Taxes}}{{end}}" required>
+			<div>
+				<label for="taxes" class="block text-sm font-medium text-gray-700 mb-1">Taxes</label>
+				<div class="flex">
+					<span class="inline-flex items-center px-3 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md text-gray-500 font-medium">$</span>
+					<input type="number" id="taxes" name="taxes" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.Taxes}}{{end}}" required
+						class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-r-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
 				</div>
 			</div>
-			<div class="form-group">
-				<label for="credit_card">Credit Card</label>
-				<div class="input-with-prefix">
-					<span class="input-prefix">$</span>
-					<input type="number" id="credit_card" name="credit_card" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.CreditCard}}{{end}}" required>
+			<div>
+				<label for="credit_card" class="block text-sm font-medium text-gray-700 mb-1">Credit Card</label>
+				<div class="flex">
+					<span class="inline-flex items-center px-3 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md text-gray-500 font-medium">$</span>
+					<input type="number" id="credit_card" name="credit_card" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.CreditCard}}{{end}}" required
+						class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-r-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
 				</div>
 			</div>
-			<div class="form-group">
-				<label for="cash_receipt">Cash (Receipt)</label>
-				<div class="input-with-prefix">
-					<span class="input-prefix">$</span>
-					<input type="number" id="cash_receipt" name="cash_receipt" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.CashReceipt}}{{end}}" required>
+			<div>
+				<label for="cash_receipt" class="block text-sm font-medium text-gray-700 mb-1">Cash (Receipt)</label>
+				<div class="flex">
+					<span class="inline-flex items-center px-3 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md text-gray-500 font-medium">$</span>
+					<input type="number" id="cash_receipt" name="cash_receipt" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.CashReceipt}}{{end}}" required
+						class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-r-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
 				</div>
 			</div>
-			<div class="form-group">
-				<label for="cash_on_hand">Cash On Hand</label>
-				<div class="input-with-prefix">
-					<span class="input-prefix">$</span>
-					<input type="number" id="cash_on_hand" name="cash_on_hand" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.CashOnHand}}{{end}}" required>
+			<div>
+				<label for="cash_on_hand" class="block text-sm font-medium text-gray-700 mb-1">Cash On Hand</label>
+				<div class="flex">
+					<span class="inline-flex items-center px-3 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md text-gray-500 font-medium">$</span>
+					<input type="number" id="cash_on_hand" name="cash_on_hand" step="0.01" min="0" value="{{if .Sale.ID}}{{printf "%.2f" .Sale.CashOnHand}}{{end}}" required
+						class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-r-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
 				</div>
 			</div>
 		</div>
 	</div>
 
 	<!-- Live Summary Bar -->
-	<div class="summary-bar">
-		<div class="summary-item">
-			<span class="summary-label">Gross Sales</span>
-			<span class="summary-value" id="summary-gross">$0.00</span>
+	<div class="flex flex-wrap items-center gap-6 lg:gap-8 bg-slate-800 rounded-lg px-6 py-4">
+		<div class="flex flex-col gap-1">
+			<span class="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Gross Sales</span>
+			<span class="text-xl font-semibold text-white font-mono" id="summary-gross">$0.00</span>
 		</div>
-		<div class="summary-item">
-			<span class="summary-label">Card</span>
-			<span class="summary-value" id="summary-cc">$0.00</span>
+		<div class="flex flex-col gap-1">
+			<span class="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Card</span>
+			<span class="text-xl font-semibold text-white font-mono" id="summary-cc">$0.00</span>
 		</div>
-		<div class="summary-item">
-			<span class="summary-label">Cash Expected</span>
-			<span class="summary-value" id="summary-cash-receipt">$0.00</span>
+		<div class="flex flex-col gap-1">
+			<span class="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Cash Expected</span>
+			<span class="text-xl font-semibold text-white font-mono" id="summary-cash-receipt">$0.00</span>
 		</div>
-		<div class="summary-item">
-			<span class="summary-label">Cash Counted</span>
-			<span class="summary-value" id="summary-cash-counted">$0.00</span>
+		<div class="flex flex-col gap-1">
+			<span class="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Cash Counted</span>
+			<span class="text-xl font-semibold text-white font-mono" id="summary-cash-counted">$0.00</span>
 		</div>
-		<div class="summary-item summary-variance">
-			<span class="summary-label">Variance</span>
-			<span class="summary-value" id="summary-variance">$0.00</span>
-			<span class="variance-badge" id="variance-badge"></span>
+		<div class="ml-auto flex flex-col items-end gap-1">
+			<span class="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Variance</span>
+			<span class="text-xl font-semibold text-white font-mono" id="summary-variance">$0.00</span>
+			<span class="text-[10px] font-semibold uppercase px-2 py-0.5 rounded" id="variance-badge"></span>
 		</div>
 	</div>
 
 	<!-- Notes -->
-	<div class="form-section">
-		<h3 class="form-section-title">Notes</h3>
-		<div class="form-group">
-			<textarea id="notes" name="notes" rows="2" placeholder="Any notes about this shift (optional)...">{{.Sale.Notes}}</textarea>
-		</div>
+	<div class="bg-white border border-gray-200 rounded-lg p-6">
+		<h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Notes</h3>
+		<textarea id="notes" name="notes" rows="2" placeholder="Any notes about this shift (optional)..."
+			class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{.Sale.Notes}}</textarea>
 	</div>
 
 	<!-- Actions -->
-	<div class="form-actions-row">
-		<div class="form-actions-left">
+	<div class="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-4 pt-2">
+		<div>
 			{{if .Sale.ID}}
-			<button type="button" class="btn btn-danger-outline" onclick="if(confirm('Delete this sale entry? This cannot be undone.')) document.getElementById('delete-form').submit();">
+			<button type="button" onclick="if(confirm('Delete this sale entry? This cannot be undone.')) document.getElementById('delete-form').submit();"
+				class="px-4 py-2 bg-white text-red-600 border border-red-200 rounded-md text-sm font-medium hover:bg-red-50 hover:border-red-300 w-full sm:w-auto">
 				Delete Entry
 			</button>
 			{{end}}
 		</div>
-		<div class="form-actions-right">
-			<a href="/sales" class="btn btn-secondary">Cancel</a>
-			<button type="submit" class="btn btn-primary">
+		<div class="flex flex-col sm:flex-row gap-2">
+			<a href="/sales" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 text-center">Cancel</a>
+			<button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">
 				{{if .Sale.ID}}Update Sale{{else}}Save Sale{{end}}
 			</button>
 		</div>
@@ -138,7 +145,7 @@
 </form>
 
 {{if .Sale.ID}}
-<form id="delete-form" action="/sales/{{.Sale.ID}}/delete" method="POST" style="display: none;"></form>
+<form id="delete-form" action="/sales/{{.Sale.ID}}/delete" method="POST" class="hidden"></form>
 {{end}}
 
 <script>
@@ -151,16 +158,13 @@
 	function updateShiftAvailability(existingShifts) {
 		shiftInputs.forEach(input => {
 			const shift = input.value;
-			const card = input.closest('.shift-option');
 			const isExisting = existingShifts.includes(shift);
 			const isCurrentShift = isEditing && shift === currentShift;
 
 			if (isExisting && !isCurrentShift) {
 				input.disabled = true;
-				card.classList.add('disabled');
 			} else {
 				input.disabled = false;
-				card.classList.remove('disabled');
 			}
 		});
 	}
@@ -221,21 +225,21 @@
 		const prefix = variance >= 0 ? '+' : '-';
 		summaryVariance.textContent = prefix + formatMoney(variance);
 
-		// Style variance
-		summaryVariance.classList.remove('variance-positive', 'variance-negative', 'variance-zero');
-		varianceBadge.classList.remove('variance-positive', 'variance-negative', 'variance-zero');
+		// Reset classes
+		summaryVariance.className = 'text-xl font-semibold font-mono';
+		varianceBadge.className = 'text-[10px] font-semibold uppercase px-2 py-0.5 rounded';
 
 		if (variance > 0.01) {
-			summaryVariance.classList.add('variance-positive');
-			varianceBadge.classList.add('variance-positive');
+			summaryVariance.classList.add('text-green-400');
+			varianceBadge.classList.add('bg-green-900', 'text-green-300');
 			varianceBadge.textContent = 'Over';
 		} else if (variance < -0.01) {
-			summaryVariance.classList.add('variance-negative');
-			varianceBadge.classList.add('variance-negative');
+			summaryVariance.classList.add('text-red-400');
+			varianceBadge.classList.add('bg-red-900', 'text-red-300');
 			varianceBadge.textContent = 'Short';
 		} else {
-			summaryVariance.classList.add('variance-zero');
-			varianceBadge.classList.add('variance-zero');
+			summaryVariance.classList.add('text-slate-400');
+			varianceBadge.classList.add('bg-slate-700', 'text-slate-300');
 			varianceBadge.textContent = 'Balanced';
 		}
 	}
@@ -248,318 +252,4 @@
 })();
 </script>
 
-<style>
-.sales-form {
-	display: flex;
-	flex-direction: column;
-	gap: 1.5rem;
-}
-
-.form-section {
-	background: white;
-	border: 1px solid #e5e7eb;
-	border-radius: 8px;
-	padding: 1.5rem;
-}
-
-.form-section-title {
-	font-size: 0.8125rem;
-	font-weight: 600;
-	color: #6b7280;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	margin: 0 0 1.25rem 0;
-}
-
-/* Date & Shift Row */
-.date-shift-row {
-	display: flex;
-	align-items: flex-end;
-	gap: 2rem;
-	flex-wrap: wrap;
-}
-
-.date-group {
-	width: 180px;
-	flex-shrink: 0;
-}
-
-.shift-group {
-	flex: 1;
-	min-width: 300px;
-}
-
-.shift-group > label {
-	display: block;
-	margin-bottom: 0.5rem;
-	font-weight: 500;
-	color: #374151;
-}
-
-.shift-selector {
-	display: flex;
-	gap: 0.75rem;
-}
-
-.shift-option {
-	cursor: pointer;
-	flex: 1;
-	max-width: 140px;
-}
-
-.shift-option input {
-	position: absolute;
-	opacity: 0;
-	pointer-events: none;
-}
-
-.shift-card {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	padding: 0.875rem 0.5rem;
-	border: 2px solid #e5e7eb;
-	border-radius: 8px;
-	background: #fafafa;
-	transition: all 0.15s ease;
-}
-
-.shift-option:hover .shift-card {
-	border-color: #d1d5db;
-	background: white;
-}
-
-.shift-option input:checked + .shift-card {
-	border-color: #3b82f6;
-	background: #eff6ff;
-}
-
-.shift-option.disabled {
-	cursor: not-allowed;
-	opacity: 0.5;
-}
-
-.shift-option.disabled .shift-card {
-	background: #f3f4f6;
-}
-
-.shift-icon {
-	font-size: 1.25rem;
-	margin-bottom: 0.125rem;
-}
-
-.shift-name {
-	font-size: 0.8125rem;
-	font-weight: 500;
-	color: #374151;
-}
-
-/* Money Grid */
-.money-grid {
-	display: grid;
-	grid-template-columns: repeat(5, 1fr);
-	gap: 1.25rem;
-}
-
-@media (max-width: 1000px) {
-	.money-grid {
-		grid-template-columns: repeat(3, 1fr);
-	}
-}
-
-@media (max-width: 600px) {
-	.money-grid {
-		grid-template-columns: repeat(2, 1fr);
-	}
-}
-
-.money-grid .form-group {
-	margin-bottom: 0;
-}
-
-.input-with-prefix {
-	display: flex;
-	align-items: stretch;
-}
-
-.input-prefix {
-	display: flex;
-	align-items: center;
-	padding: 0 0.75rem;
-	background: #f3f4f6;
-	border: 1px solid #d1d5db;
-	border-right: none;
-	border-radius: 6px 0 0 6px;
-	color: #6b7280;
-	font-weight: 500;
-}
-
-.input-with-prefix input {
-	border-radius: 0 6px 6px 0;
-	flex: 1;
-	min-width: 0;
-}
-
-/* Summary Bar */
-.summary-bar {
-	display: flex;
-	background: #1e293b;
-	border-radius: 8px;
-	padding: 1rem 1.5rem;
-	gap: 2rem;
-	flex-wrap: wrap;
-}
-
-.summary-item {
-	display: flex;
-	flex-direction: column;
-	gap: 0.25rem;
-}
-
-.summary-item .summary-label {
-	font-size: 0.6875rem;
-	font-weight: 500;
-	color: #94a3b8;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-}
-
-.summary-item .summary-value {
-	font-size: 1.25rem;
-	font-weight: 600;
-	color: white;
-	font-family: monospace;
-}
-
-.summary-variance {
-	margin-left: auto;
-	align-items: flex-end;
-	position: relative;
-}
-
-.variance-badge {
-	font-size: 0.625rem;
-	font-weight: 600;
-	text-transform: uppercase;
-	padding: 0.125rem 0.5rem;
-	border-radius: 4px;
-	margin-top: 0.25rem;
-}
-
-.variance-badge.variance-positive {
-	background: #166534;
-	color: #bbf7d0;
-}
-
-.variance-badge.variance-negative {
-	background: #991b1b;
-	color: #fecaca;
-}
-
-.variance-badge.variance-zero {
-	background: #475569;
-	color: #e2e8f0;
-}
-
-.summary-value.variance-positive {
-	color: #4ade80 !important;
-}
-
-.summary-value.variance-negative {
-	color: #f87171 !important;
-}
-
-.summary-value.variance-zero {
-	color: #94a3b8 !important;
-}
-
-/* Actions Row */
-.form-actions-row {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding-top: 0.5rem;
-}
-
-.form-actions-left {
-	display: flex;
-	gap: 0.5rem;
-}
-
-.form-actions-right {
-	display: flex;
-	gap: 0.5rem;
-}
-
-.btn-danger-outline {
-	background: white;
-	color: #dc2626;
-	border: 1px solid #fecaca;
-}
-
-.btn-danger-outline:hover {
-	background: #fef2f2;
-	border-color: #dc2626;
-}
-
-@media (max-width: 600px) {
-	.date-shift-row {
-		flex-direction: column;
-		align-items: stretch;
-		gap: 1rem;
-	}
-
-	.date-group {
-		width: 100%;
-	}
-
-	.shift-group {
-		min-width: 0;
-	}
-
-	.shift-option {
-		max-width: none;
-	}
-
-	.summary-bar {
-		gap: 1rem;
-	}
-
-	.summary-item {
-		flex: 1;
-		min-width: 80px;
-	}
-
-	.summary-variance {
-		margin-left: 0;
-		flex-basis: 100%;
-		flex-direction: row;
-		align-items: center;
-		justify-content: space-between;
-		padding-top: 0.75rem;
-		border-top: 1px solid #334155;
-	}
-
-	.form-actions-row {
-		flex-direction: column-reverse;
-		gap: 1rem;
-	}
-
-	.form-actions-left, .form-actions-right {
-		width: 100%;
-	}
-
-	.form-actions-right {
-		flex-direction: column;
-	}
-
-	.form-actions-right .btn {
-		width: 100%;
-	}
-
-	.form-actions-left .btn {
-		width: 100%;
-	}
-}
-</style>
 {{template "footer" .}}

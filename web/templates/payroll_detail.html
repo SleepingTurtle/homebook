@@ -1,46 +1,54 @@
 {{template "header" .}}
-<div class="page-header">
-	<h1>Payroll: {{.WeekDisplay}}</h1>
-	<a href="/payroll" class="btn btn-secondary">Back to Payroll</a>
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+	<h1 class="text-2xl font-semibold text-gray-900">Payroll: {{.WeekDisplay}}</h1>
+	<a href="/payroll" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50">Back to Payroll</a>
 </div>
 
-<table>
-	<thead>
-		<tr>
-			<th>Employee</th>
-			<th class="money">Rate</th>
-			<th class="money">Hours</th>
-			<th class="money">Total</th>
-			<th>Status</th>
-			<th>Payment</th>
-			<th class="hide-mobile">Date Paid</th>
-		</tr>
-	</thead>
-	<tbody>
-		{{range .Entries}}
-		{{if .Payroll}}
-		<tr>
-			<td>{{.Employee.Name}}</td>
-			<td class="money">${{printf "%.2f" .Payroll.HourlyRate}}</td>
-			<td class="money">{{printf "%.1f" .Payroll.TotalHours}}</td>
-			<td class="money">${{printf "%.2f" .Payroll.TotalPay}}</td>
-			<td>
-				{{if eq .Payroll.Status "paid"}}
-					<span class="status status-paid">Paid</span>
-				{{else}}
-					<span class="status status-unpaid">Unpaid</span>
+<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+	<div class="overflow-x-auto">
+		<table class="w-full text-sm">
+			<thead>
+				<tr class="border-b border-gray-200 bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+					<th class="text-left py-3 px-4 font-medium">Employee</th>
+					<th class="text-right py-3 px-2 font-medium">Rate</th>
+					<th class="text-right py-3 px-2 font-medium">Hours</th>
+					<th class="text-right py-3 px-2 font-medium">Total</th>
+					<th class="text-center py-3 px-2 font-medium">Status</th>
+					<th class="text-left py-3 px-2 font-medium">Payment</th>
+					<th class="text-left py-3 px-4 font-medium hidden md:table-cell">Date Paid</th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-100">
+				{{range .Entries}}
+				{{if .Payroll}}
+				<tr class="hover:bg-gray-50">
+					<td class="py-3 px-4 text-gray-900 font-medium">{{.Employee.Name}}</td>
+					<td class="py-3 px-2 text-right text-gray-600">${{printf "%.2f" .Payroll.HourlyRate}}</td>
+					<td class="py-3 px-2 text-right text-gray-600">{{printf "%.1f" .Payroll.TotalHours}}</td>
+					<td class="py-3 px-2 text-right text-gray-900 font-medium">${{printf "%.2f" .Payroll.TotalPay}}</td>
+					<td class="py-3 px-2 text-center">
+						{{if eq .Payroll.Status "paid"}}
+						<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">Paid</span>
+						{{else}}
+						<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Unpaid</span>
+						{{end}}
+					</td>
+					<td class="py-3 px-2 text-gray-600">{{.Payroll.PaymentMethod}}{{if .Payroll.CheckNumber}} #{{.Payroll.CheckNumber}}{{end}}</td>
+					<td class="py-3 px-4 text-gray-600 hidden md:table-cell">{{.Payroll.DatePaid}}</td>
+				</tr>
 				{{end}}
-			</td>
-			<td>{{.Payroll.PaymentMethod}}{{if .Payroll.CheckNumber}} #{{.Payroll.CheckNumber}}{{end}}</td>
-			<td class="hide-mobile">{{.Payroll.DatePaid}}</td>
-		</tr>
-		{{end}}
-		{{end}}
-		<tr class="totals-row">
-			<td colspan="3">Total</td>
-			<td class="money">${{printf "%.2f" .Total}}</td>
-			<td colspan="3"></td>
-		</tr>
-	</tbody>
-</table>
+				{{end}}
+			</tbody>
+			<tfoot>
+				<tr class="bg-gray-50 border-t border-gray-200">
+					<td colspan="3" class="py-3 px-4 font-semibold text-gray-900">Total</td>
+					<td class="py-3 px-2 text-right font-bold text-gray-900">${{printf "%.2f" .Total}}</td>
+					<td colspan="3"></td>
+				</tr>
+			</tfoot>
+		</table>
+	</div>
+</div>
+
 {{template "footer" .}}

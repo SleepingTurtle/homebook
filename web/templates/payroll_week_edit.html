@@ -1,107 +1,117 @@
 {{template "header" .}}
-<div class="page-header">
-	<h1>Payroll: {{.WeekDisplay}}</h1>
-	<a href="/payroll" class="btn btn-secondary">Back to Payroll</a>
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+	<h1 class="text-2xl font-semibold text-gray-900">Payroll: {{.WeekDisplay}}</h1>
+	<a href="/payroll" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50">Back to Payroll</a>
 </div>
 
 <form action="/payroll/save" method="POST">
 	<input type="hidden" name="week_start" value="{{.WeekStart}}">
 	<input type="hidden" name="week_end" value="{{.WeekEnd}}">
 
-	<table>
-		<thead>
-			<tr>
-				<th>Employee</th>
-				<th class="money">Rate</th>
-				<th class="hours-col">Hours</th>
-				<th class="money">Total</th>
-				<th>Status</th>
-				<th class="actions"></th>
-			</tr>
-		</thead>
-		<tbody>
-			{{range .Entries}}
-			<tr>
-				<td>{{.Employee.Name}}</td>
-				<td class="money">${{printf "%.2f" .Employee.HourlyRate}}</td>
-				<td class="hours-col">
-					{{if .Payroll}}
-						{{if eq .Payroll.Status "paid"}}
-							{{printf "%.1f" .Payroll.TotalHours}}
-						{{else}}
-							<input type="number" name="hours_{{.Employee.ID}}" value="{{printf "%.1f" .Payroll.TotalHours}}" step="0.25" min="0" class="hours-input">
-						{{end}}
-					{{else}}
-						<input type="number" name="hours_{{.Employee.ID}}" value="" step="0.25" min="0" placeholder="0" class="hours-input">
-					{{end}}
-				</td>
-				<td class="money">
-					{{if .Payroll}}
-						${{printf "%.2f" .Payroll.TotalPay}}
-					{{else}}
-						-
-					{{end}}
-				</td>
-				<td>
-					{{if .Payroll}}
-						{{if eq .Payroll.Status "paid"}}
-							<span class="status status-paid">Paid</span>
-						{{else}}
-							<span class="status status-unpaid">Unpaid</span>
-						{{end}}
-					{{else}}
-						<span class="text-muted">-</span>
-					{{end}}
-				</td>
-				<td class="actions">
-					{{if .Payroll}}
-						{{if eq .Payroll.Status "not_paid"}}
-							<button type="button" class="btn btn-success btn-small" onclick="showPayModal({{.Payroll.ID}}, '{{.Employee.Name}}', '{{.Employee.PaymentMethod}}')">Pay</button>
-						{{end}}
-					{{end}}
-				</td>
-			</tr>
-			{{end}}
-			{{if .Entries}}
-			<tr class="totals-row">
-				<td colspan="3">Total</td>
-				<td class="money">${{printf "%.2f" .Total}}</td>
-				<td colspan="2"></td>
-			</tr>
-			{{end}}
-		</tbody>
-	</table>
-
 	{{if .Entries}}
-	<div class="payroll-actions">
-		<button type="submit" class="btn btn-primary">Save Hours</button>
+	<div class="bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
+		<div class="overflow-x-auto">
+			<table class="w-full text-sm">
+				<thead>
+					<tr class="border-b border-gray-200 bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+						<th class="text-left py-3 px-4 font-medium">Employee</th>
+						<th class="text-right py-3 px-2 font-medium">Rate</th>
+						<th class="text-center py-3 px-2 font-medium w-28">Hours</th>
+						<th class="text-right py-3 px-2 font-medium">Total</th>
+						<th class="text-center py-3 px-2 font-medium">Status</th>
+						<th class="py-3 px-4"></th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-gray-100">
+					{{range .Entries}}
+					<tr class="hover:bg-gray-50">
+						<td class="py-3 px-4 text-gray-900 font-medium">{{.Employee.Name}}</td>
+						<td class="py-3 px-2 text-right text-gray-600">${{printf "%.2f" .Employee.HourlyRate}}</td>
+						<td class="py-3 px-2 text-center">
+							{{if .Payroll}}
+								{{if eq .Payroll.Status "paid"}}
+								<span class="text-gray-600">{{printf "%.1f" .Payroll.TotalHours}}</span>
+								{{else}}
+								<input type="number" name="hours_{{.Employee.ID}}" value="{{printf "%.1f" .Payroll.TotalHours}}" step="0.25" min="0"
+									class="w-20 px-2 py-1 text-center border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+								{{end}}
+							{{else}}
+								<input type="number" name="hours_{{.Employee.ID}}" value="" step="0.25" min="0" placeholder="0"
+									class="w-20 px-2 py-1 text-center border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+							{{end}}
+						</td>
+						<td class="py-3 px-2 text-right text-gray-900 font-medium">
+							{{if .Payroll}}${{printf "%.2f" .Payroll.TotalPay}}{{else}}<span class="text-gray-400">-</span>{{end}}
+						</td>
+						<td class="py-3 px-2 text-center">
+							{{if .Payroll}}
+								{{if eq .Payroll.Status "paid"}}
+								<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">Paid</span>
+								{{else}}
+								<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Unpaid</span>
+								{{end}}
+							{{else}}
+								<span class="text-gray-400">-</span>
+							{{end}}
+						</td>
+						<td class="py-3 px-4 text-right">
+							{{if .Payroll}}
+								{{if eq .Payroll.Status "not_paid"}}
+								<button type="button" class="px-2.5 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700" onclick="showPayModal({{.Payroll.ID}}, '{{.Employee.Name}}', '{{.Employee.PaymentMethod}}')">Pay</button>
+								{{end}}
+							{{end}}
+						</td>
+					</tr>
+					{{end}}
+				</tbody>
+				<tfoot>
+					<tr class="bg-gray-50 border-t border-gray-200">
+						<td colspan="3" class="py-3 px-4 font-semibold text-gray-900">Total</td>
+						<td class="py-3 px-2 text-right font-bold text-gray-900">${{printf "%.2f" .Total}}</td>
+						<td colspan="2"></td>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+	</div>
+
+	<div class="flex gap-3">
+		<button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">Save Hours</button>
+	</div>
+	{{else}}
+	<div class="bg-white border border-gray-200 rounded-lg px-6 py-12 text-center">
+		<p class="text-gray-500">No active employees. Add employees first.</p>
 	</div>
 	{{end}}
 </form>
 
-{{if not .Entries}}
-<p class="empty-state">No active employees. Add employees first.</p>
-{{end}}
-
-<div id="payModal" class="modal" style="display:none">
-	<div class="modal-content">
-		<h3>Mark <span id="payModalName"></span> Paid</h3>
+<!-- Pay Modal -->
+<div id="payModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+	<div class="bg-white rounded-lg p-6 w-full max-w-sm mx-4">
+		<h3 class="text-lg font-semibold text-gray-900 mb-4">Mark <span id="payModalName"></span> Paid</h3>
 		<form id="payForm" method="POST">
 			<input type="hidden" name="week" value="{{.WeekStart}}">
-			<div class="form-group">
-				<label for="pay_method">Payment Method</label>
-				<select id="pay_method" name="payment_method" required>
-					<option value="cash">Cash</option>
-					<option value="check">Check</option>
-				</select>
+			<div class="space-y-4">
+				<div>
+					<label for="pay_method" class="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+					<select id="pay_method" name="payment_method" required
+						class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+						<option value="cash">Cash</option>
+						<option value="check">Check</option>
+					</select>
+				</div>
+				<div id="checkNumberGroup" class="hidden">
+					<label for="pay_check_number" class="block text-sm font-medium text-gray-700 mb-1">
+						Check Number{{if .LastCheckNumber}} <span class="font-normal text-gray-500">(Last: {{.LastCheckNumber}})</span>{{end}}
+					</label>
+					<input type="text" id="pay_check_number" name="check_number"
+						class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+				</div>
 			</div>
-			<div class="form-group" id="checkNumberGroup" style="display:none">
-				<label for="pay_check_number">Check Number{{if .LastCheckNumber}} (Last: {{.LastCheckNumber}}){{end}}</label>
-				<input type="text" id="pay_check_number" name="check_number">
-			</div>
-			<div class="modal-actions">
-				<button type="submit" class="btn btn-success">Mark Paid</button>
-				<button type="button" class="btn btn-secondary" onclick="hidePayModal()">Cancel</button>
+			<div class="flex gap-2 mt-6">
+				<button type="submit" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700">Mark Paid</button>
+				<button type="button" class="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50" onclick="hidePayModal()">Cancel</button>
 			</div>
 		</form>
 	</div>
@@ -113,16 +123,16 @@ function showPayModal(id, name, defaultMethod) {
 	document.getElementById('payForm').action = '/payroll/entry/' + id + '/pay';
 	document.getElementById('pay_method').value = defaultMethod;
 	toggleCheckNumber();
-	document.getElementById('payModal').style.display = 'flex';
+	document.getElementById('payModal').classList.remove('hidden');
 }
 
 function hidePayModal() {
-	document.getElementById('payModal').style.display = 'none';
+	document.getElementById('payModal').classList.add('hidden');
 }
 
 function toggleCheckNumber() {
 	var method = document.getElementById('pay_method').value;
-	document.getElementById('checkNumberGroup').style.display = method === 'check' ? 'block' : 'none';
+	document.getElementById('checkNumberGroup').classList.toggle('hidden', method !== 'check');
 }
 
 document.getElementById('pay_method').addEventListener('change', toggleCheckNumber);
@@ -131,4 +141,5 @@ document.getElementById('payModal').addEventListener('click', function(e) {
 	if (e.target === this) hidePayModal();
 });
 </script>
+
 {{template "footer" .}}
