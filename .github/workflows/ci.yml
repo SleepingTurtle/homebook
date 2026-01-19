@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: go test -v ./...
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Download Tailwind CSS
+        run: |
+          curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.17/tailwindcss-linux-x64
+          chmod +x tailwindcss-linux-x64
+          mv tailwindcss-linux-x64 tailwindcss
+
+      - name: Build Tailwind CSS
+        run: ./tailwindcss -i ./web/static/tailwind.css -o ./web/static/tailwind-out.css --minify
+
+      - name: Build binary
+        run: |
+          VERSION=$(cat VERSION)
+          BUILD_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          GIT_COMMIT=$(git rev-parse --short HEAD)
+
+          go build -ldflags "-X homebooks/internal/version.Version=$VERSION \
+                            -X homebooks/internal/version.BuildTime=$BUILD_TIME \
+                            -X homebooks/internal/version.GitCommit=$GIT_COMMIT" \
+                   -o homebooks ./cmd/server
+
+      - name: Verify binary
+        run: ./homebooks --version || true
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Check formatting
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "The following files are not formatted:"
+            gofmt -l .
+            exit 1
+          fi
