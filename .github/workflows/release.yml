@@ -247,28 +247,40 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v7
+      - name: Wait for artifacts to be available
+        run: sleep 10
+
+      - name: Download Linux amd64 artifact
+        uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: homebooks-linux-amd64
+          path: release
+
+      - name: Download Linux arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: homebooks-linux-arm64
+          path: release
+
+      - name: Download macOS amd64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: homebooks-darwin-amd64
+          path: release
+
+      - name: Download macOS arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: homebooks-darwin-arm64
+          path: release
 
       - name: Prepare release assets
         run: |
-          mkdir -p release
-          for dir in artifacts/*/; do
-            for file in "$dir"*; do
-              if [ -f "$file" ]; then
-                filename=$(basename "$file")
-                cp "$file" "release/$filename"
-                chmod +x "release/$filename"
-              fi
-            done
-          done
-
-          # Create checksums
           cd release
-          sha256sum * > checksums.txt
+          chmod +x homebooks-*
+          sha256sum homebooks-* > checksums.txt
           cat checksums.txt
+          ls -la
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
