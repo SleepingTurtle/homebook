@@ -84,7 +84,7 @@ jobs:
                    -o homebooks-${{ matrix.suffix }} ./cmd/server
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: homebooks-${{ matrix.suffix }}
           path: homebooks-${{ matrix.suffix }}
@@ -150,7 +150,7 @@ jobs:
                    -o homebooks-${{ matrix.suffix }} ./cmd/server
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: homebooks-${{ matrix.suffix }}
           path: homebooks-${{ matrix.suffix }}
