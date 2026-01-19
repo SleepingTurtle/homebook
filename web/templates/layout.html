@@ -5,22 +5,23 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>{{.Title}} - HomeBooks</title>
+	<link rel="stylesheet" href="/static/tailwind-out.css">
 	<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-	<nav>
-		<div class="nav-inner">
-			<a href="/" class="brand">HomeBooks</a>
-			<a href="/" {{if eq .Active "dashboard"}}class="active"{{end}}>Dashboard</a>
-			<a href="/sales" {{if eq .Active "sales"}}class="active"{{end}}>Sales</a>
-			<a href="/expenses" {{if eq .Active "expenses"}}class="active"{{end}}>Receipts</a>
-			<a href="/payroll" {{if eq .Active "payroll"}}class="active"{{end}}>Payroll</a>
-			<form action="/logout" method="POST" class="logout-btn" style="display:inline">
-				<button type="submit" class="btn btn-secondary btn-small">Logout</button>
+	<nav class="bg-white border-b border-gray-200 sticky top-0 z-50 px-4 py-3">
+		<div class="max-w-6xl mx-auto flex items-center gap-4 flex-wrap">
+			<a href="/" class="font-semibold text-lg text-gray-900 no-underline mr-4 hover:text-gray-900">HomeBooks</a>
+			<a href="/" class="text-gray-500 no-underline px-3 py-2 rounded text-sm hover:bg-gray-100 hover:text-gray-900 {{if eq .Active "dashboard"}}bg-gray-100 text-gray-900{{end}}">Dashboard</a>
+			<a href="/sales" class="text-gray-500 no-underline px-3 py-2 rounded text-sm hover:bg-gray-100 hover:text-gray-900 {{if eq .Active "sales"}}bg-gray-100 text-gray-900{{end}}">Sales</a>
+			<a href="/expenses" class="text-gray-500 no-underline px-3 py-2 rounded text-sm hover:bg-gray-100 hover:text-gray-900 {{if eq .Active "expenses"}}bg-gray-100 text-gray-900{{end}}">Receipts</a>
+			<a href="/payroll" class="text-gray-500 no-underline px-3 py-2 rounded text-sm hover:bg-gray-100 hover:text-gray-900 {{if eq .Active "payroll"}}bg-gray-100 text-gray-900{{end}}">Payroll</a>
+			<form action="/logout" method="POST" class="ml-auto">
+				<button type="submit" class="px-3 py-1.5 text-sm border border-gray-300 rounded bg-white hover:bg-gray-50 text-gray-700 cursor-pointer">Logout</button>
 			</form>
 		</div>
 	</nav>
-	<main class="container">
+	<main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 {{end}}
 
 {{define "footer"}}

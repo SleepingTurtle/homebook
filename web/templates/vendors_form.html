@@ -1,42 +1,56 @@
 {{template "header" .}}
-<div class="page-header">
-	<h1>{{if .Vendor.ID}}Edit Vendor{{else}}New Vendor{{end}}</h1>
+
+<div class="max-w-xl mx-auto">
+	<h1 class="text-2xl font-semibold text-gray-900 mb-6">{{if .Vendor.ID}}Edit Vendor{{else}}New Vendor{{end}}</h1>
+
+	{{if .Error}}
+	<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">{{.Error}}</div>
+	{{end}}
+
+	<form action="{{if .Vendor.ID}}/vendors/{{.Vendor.ID}}{{else}}/vendors{{end}}" method="POST" class="bg-white border border-gray-200 rounded-lg p-6">
+		<div class="space-y-5">
+			<div>
+				<label for="name" class="block text-sm font-medium text-gray-700 mb-1">Vendor Name</label>
+				<input type="text" id="name" name="name" value="{{.Vendor.Name}}" required
+					class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+			</div>
+
+			<div>
+				<label class="block text-sm font-medium text-gray-700 mb-2">Categories</label>
+				<div class="flex flex-wrap gap-2">
+					{{range .Categories}}
+					<label class="inline-flex">
+						<input type="checkbox" name="category" value="{{.}}" {{if $.Vendor.HasCategory .}}checked{{end}} class="sr-only peer">
+						<span class="px-3 py-1.5 text-sm font-medium rounded-full cursor-pointer border border-gray-300 text-gray-600 peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 hover:border-gray-400">{{.}}</span>
+					</label>
+					{{end}}
+				</div>
+			</div>
+
+			<div>
+				<label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description <span class="font-normal text-gray-400">(optional)</span></label>
+				<textarea id="description" name="description" rows="3"
+					class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{.Vendor.Description}}</textarea>
+			</div>
+		</div>
+
+		<div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
+			<button type="submit" class="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">
+				{{if .Vendor.ID}}Update Vendor{{else}}Save Vendor{{end}}
+			</button>
+			<a href="/vendors" class="flex-1 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 text-center">Cancel</a>
+		</div>
+	</form>
+
+	{{if .Vendor.ID}}
+	<div class="mt-6 pt-6 border-t border-gray-200">
+		<form action="/vendors/{{.Vendor.ID}}/delete" method="POST" onsubmit="return confirm('Delete this vendor? This will fail if there are expenses linked to it.')">
+			<button type="submit" class="w-full px-4 py-2 bg-white text-red-600 border border-red-200 rounded-md text-sm font-medium hover:bg-red-50 hover:border-red-300">
+				Delete This Vendor
+			</button>
+		</form>
+	</div>
+	{{end}}
 </div>
 
-{{if .Error}}
-<div class="error">{{.Error}}</div>
-{{end}}
-
-<form action="{{if .Vendor.ID}}/vendors/{{.Vendor.ID}}{{else}}/vendors{{end}}" method="POST">
-	<div class="form-group">
-		<label for="name">Vendor Name</label>
-		<input type="text" id="name" name="name" value="{{.Vendor.Name}}" required>
-	</div>
-
-	<div class="form-group">
-		<label>Categories</label>
-		<div class="category-toggles">
-			{{range .Categories}}
-			<input type="checkbox" id="cat-{{.}}" name="category" value="{{.}}" {{if $.Vendor.HasCategory .}}checked{{end}}>
-			<label for="cat-{{.}}">{{.}}</label>
-			{{end}}
-		</div>
-	</div>
-
-	<div class="form-group">
-		<label for="description">Description (optional)</label>
-		<textarea id="description" name="description">{{.Vendor.Description}}</textarea>
-	</div>
-
-	<div style="display: flex; gap: 0.5rem;">
-		<button type="submit" class="btn btn-primary">{{if .Vendor.ID}}Update{{else}}Save{{end}}</button>
-		<a href="/vendors" class="btn btn-secondary">Cancel</a>
-	</div>
-</form>
-
-{{if .Vendor.ID}}
-<form action="/vendors/{{.Vendor.ID}}/delete" method="POST" style="margin-top: 2rem;" onsubmit="return confirm('Delete this vendor? This will fail if there are expenses linked to it.')">
-	<button type="submit" class="btn btn-danger">Delete This Vendor</button>
-</form>
-{{end}}
 {{template "footer" .}}

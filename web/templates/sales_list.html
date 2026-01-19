@@ -1,116 +1,125 @@
 {{template "header" .}}
-<div class="page-header">
-	<h1>Daily Sales</h1>
-	<div style="display: flex; gap: 0.5rem;">
-		<a href="/sales/new" class="btn btn-primary">Add Sale</a>
-		<a href="/sales/delivery/new" class="btn btn-secondary">Add Delivery</a>
+
+<div class="flex items-center justify-between mb-6">
+	<h1 class="text-2xl font-semibold text-gray-900">Daily Sales</h1>
+	<div class="flex gap-2">
+		<a href="/sales/new" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">Add Sale</a>
+		<a href="/sales/delivery/new" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50">Add Delivery</a>
 	</div>
 </div>
 
 {{define "sales-table"}}
 {{if .}}
-<table>
-	<thead>
-		<tr>
-			<th>Date</th>
-			<th>Shift</th>
-			<th class="money">Net Sales</th>
-			<th class="money">Taxes</th>
-			<th class="money hide-mobile">Credit Card</th>
-			<th class="money hide-mobile">Cash Receipt</th>
-			<th class="money">Cash On Hand</th>
-			<th class="money hide-mobile">Expected</th>
-			<th class="money">Variance</th>
-			<th class="actions"></th>
-		</tr>
-	</thead>
-	<tbody>
-		{{range .}}
-		<tr>
-			<td>{{.Date}}</td>
-			<td>{{.Shift}}</td>
-			<td class="money">${{printf "%.2f" .NetSales}}</td>
-			<td class="money">${{printf "%.2f" .Taxes}}</td>
-			<td class="money hide-mobile">${{printf "%.2f" .CreditCard}}</td>
-			<td class="money hide-mobile">${{printf "%.2f" .CashReceipt}}</td>
-			<td class="money">${{printf "%.2f" .CashOnHand}}</td>
-			<td class="money hide-mobile">${{printf "%.2f" .ExpectedCash}}</td>
-			<td class="money {{if lt .Variance 0.0}}variance-negative{{else if gt .Variance 0.0}}variance-positive{{end}}">
-				${{printf "%.2f" .Variance}}
-			</td>
-			<td class="actions">
-				<a href="/sales/{{.ID}}/edit" class="btn btn-secondary btn-small">Edit</a>
-			</td>
-		</tr>
-		{{end}}
-	</tbody>
-</table>
+<div class="overflow-x-auto">
+	<table class="w-full text-sm">
+		<thead>
+			<tr class="border-b border-gray-200 text-gray-500 text-xs uppercase tracking-wide">
+				<th class="text-left py-3 px-2 font-medium">Date</th>
+				<th class="text-left py-3 px-2 font-medium">Shift</th>
+				<th class="text-right py-3 px-2 font-medium">Net Sales</th>
+				<th class="text-right py-3 px-2 font-medium">Taxes</th>
+				<th class="text-right py-3 px-2 font-medium hidden md:table-cell">Credit Card</th>
+				<th class="text-right py-3 px-2 font-medium hidden md:table-cell">Cash Receipt</th>
+				<th class="text-right py-3 px-2 font-medium">Cash On Hand</th>
+				<th class="text-right py-3 px-2 font-medium hidden md:table-cell">Expected</th>
+				<th class="text-right py-3 px-2 font-medium">Variance</th>
+				<th class="py-3 px-2 w-16"></th>
+			</tr>
+		</thead>
+		<tbody class="divide-y divide-gray-100">
+			{{range .}}
+			<tr class="hover:bg-gray-50">
+				<td class="py-3 px-2 text-gray-900">{{.Date}}</td>
+				<td class="py-3 px-2 text-gray-600">{{.Shift}}</td>
+				<td class="py-3 px-2 text-right text-gray-900 font-medium">${{printf "%.2f" .NetSales}}</td>
+				<td class="py-3 px-2 text-right text-gray-600">${{printf "%.2f" .Taxes}}</td>
+				<td class="py-3 px-2 text-right text-gray-600 hidden md:table-cell">${{printf "%.2f" .CreditCard}}</td>
+				<td class="py-3 px-2 text-right text-gray-600 hidden md:table-cell">${{printf "%.2f" .CashReceipt}}</td>
+				<td class="py-3 px-2 text-right text-gray-900">${{printf "%.2f" .CashOnHand}}</td>
+				<td class="py-3 px-2 text-right text-gray-600 hidden md:table-cell">${{printf "%.2f" .ExpectedCash}}</td>
+				<td class="py-3 px-2 text-right font-medium {{if lt .Variance 0.0}}text-red-600{{else if gt .Variance 0.0}}text-green-600{{else}}text-gray-600{{end}}">
+					${{printf "%.2f" .Variance}}
+				</td>
+				<td class="py-3 px-2 text-right">
+					<a href="/sales/{{.ID}}/edit" class="text-blue-600 hover:text-blue-800 text-sm">Edit</a>
+				</td>
+			</tr>
+			{{end}}
+		</tbody>
+	</table>
+</div>
 {{else}}
-<p class="empty-state-inline">No entries</p>
+<p class="text-gray-500 text-sm py-4">No entries</p>
 {{end}}
 {{end}}
 
 {{define "date-grouped-table"}}
 {{if .}}
-<div class="date-groups">
+<div class="space-y-2">
 	{{range .}}
-	<div class="date-row" data-collapsed="{{.Collapsed}}">
-		<div class="date-row-header" onclick="toggleDateRow(this)">
-			<span class="collapse-icon">{{if .Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
-			<span class="date-label">{{.Date}}</span>
-			<span class="date-total">${{printf "%.2f" .Total}}</span>
+	<div class="date-row border border-gray-200 rounded-lg bg-white" data-collapsed="{{.Collapsed}}">
+		<div class="date-row-header flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 rounded-t-lg" onclick="toggleDateRow(this)">
+			<div class="flex items-center gap-3">
+				<span class="collapse-icon text-gray-400 text-xs">{{if .Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
+				<span class="font-medium text-gray-900">{{.Date}}</span>
+			</div>
+			<span class="font-semibold text-gray-900">${{printf "%.2f" .Total}}</span>
 		</div>
-		<div class="date-row-content" {{if .Collapsed}}style="display:none"{{end}}>
-			<table>
-				<thead>
-					<tr>
-						<th>Shift</th>
-						<th class="money">Net Sales</th>
-						<th class="money">Taxes</th>
-						<th class="money hide-mobile">Credit Card</th>
-						<th class="money hide-mobile">Cash Receipt</th>
-						<th class="money">Cash On Hand</th>
-						<th class="money hide-mobile">Expected</th>
-						<th class="money">Variance</th>
-						<th class="actions"></th>
-					</tr>
-				</thead>
-				<tbody>
-					{{range .Sales}}
-					<tr>
-						<td>{{.Shift}}</td>
-						<td class="money">${{printf "%.2f" .NetSales}}</td>
-						<td class="money">${{printf "%.2f" .Taxes}}</td>
-						<td class="money hide-mobile">${{printf "%.2f" .CreditCard}}</td>
-						<td class="money hide-mobile">${{printf "%.2f" .CashReceipt}}</td>
-						<td class="money">${{printf "%.2f" .CashOnHand}}</td>
-						<td class="money hide-mobile">${{printf "%.2f" .ExpectedCash}}</td>
-						<td class="money {{if lt .Variance 0.0}}variance-negative{{else if gt .Variance 0.0}}variance-positive{{end}}">
-							${{printf "%.2f" .Variance}}
-						</td>
-						<td class="actions">
-							<a href="/sales/{{.ID}}/edit" class="btn btn-secondary btn-small">Edit</a>
-						</td>
-					</tr>
-					{{end}}
-				</tbody>
-			</table>
+		<div class="date-row-content border-t border-gray-100" {{if .Collapsed}}style="display:none"{{end}}>
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="border-b border-gray-200 text-gray-500 text-xs uppercase tracking-wide">
+							<th class="text-left py-3 px-4 font-medium">Shift</th>
+							<th class="text-right py-3 px-2 font-medium">Net Sales</th>
+							<th class="text-right py-3 px-2 font-medium">Taxes</th>
+							<th class="text-right py-3 px-2 font-medium hidden md:table-cell">Credit Card</th>
+							<th class="text-right py-3 px-2 font-medium hidden md:table-cell">Cash Receipt</th>
+							<th class="text-right py-3 px-2 font-medium">Cash On Hand</th>
+							<th class="text-right py-3 px-2 font-medium hidden md:table-cell">Expected</th>
+							<th class="text-right py-3 px-2 font-medium">Variance</th>
+							<th class="py-3 px-2 w-16"></th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-gray-100">
+						{{range .Sales}}
+						<tr class="hover:bg-gray-50">
+							<td class="py-3 px-4 text-gray-600">{{.Shift}}</td>
+							<td class="py-3 px-2 text-right text-gray-900 font-medium">${{printf "%.2f" .NetSales}}</td>
+							<td class="py-3 px-2 text-right text-gray-600">${{printf "%.2f" .Taxes}}</td>
+							<td class="py-3 px-2 text-right text-gray-600 hidden md:table-cell">${{printf "%.2f" .CreditCard}}</td>
+							<td class="py-3 px-2 text-right text-gray-600 hidden md:table-cell">${{printf "%.2f" .CashReceipt}}</td>
+							<td class="py-3 px-2 text-right text-gray-900">${{printf "%.2f" .CashOnHand}}</td>
+							<td class="py-3 px-2 text-right text-gray-600 hidden md:table-cell">${{printf "%.2f" .ExpectedCash}}</td>
+							<td class="py-3 px-2 text-right font-medium {{if lt .Variance 0.0}}text-red-600{{else if gt .Variance 0.0}}text-green-600{{else}}text-gray-600{{end}}">
+								${{printf "%.2f" .Variance}}
+							</td>
+							<td class="py-3 px-2 text-right">
+								<a href="/sales/{{.ID}}/edit" class="text-blue-600 hover:text-blue-800 text-sm">Edit</a>
+							</td>
+						</tr>
+						{{end}}
+					</tbody>
+				</table>
+			</div>
 			{{if .Delivery}}
-			<div class="delivery-row">
-				<span class="delivery-label">Delivery</span>
-				<span class="delivery-amounts">
-					<span class="gross">${{printf "%.2f" .Delivery.TotalSubtotal}} gross</span> /
-					<span class="net">${{printf "%.2f" .Delivery.TotalNet}} net</span>
-				</span>
-				<a href="/sales/delivery/{{.RawDate}}/edit" class="btn btn-secondary btn-small">Edit</a>
+			<div class="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-100 rounded-b-lg">
+				<span class="text-sm font-medium text-gray-700">Delivery</span>
+				<div class="flex items-center gap-4">
+					<span class="text-sm text-gray-600">
+						<span class="font-medium text-gray-900">${{printf "%.2f" .Delivery.TotalSubtotal}}</span> gross /
+						<span class="font-medium text-green-600">${{printf "%.2f" .Delivery.TotalNet}}</span> net
+					</span>
+					<a href="/sales/delivery/{{.RawDate}}/edit" class="text-blue-600 hover:text-blue-800 text-sm">Edit</a>
+				</div>
 			</div>
 			{{else}}
-			<div class="delivery-row">
-				<span class="delivery-label">Delivery</span>
-				<span class="delivery-amounts">
-					<span class="gross">No delivery data</span>
-				</span>
-				<a href="/sales/delivery/new?date={{.RawDate}}" class="btn btn-secondary btn-small">Add</a>
+			<div class="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-100 rounded-b-lg">
+				<span class="text-sm font-medium text-gray-700">Delivery</span>
+				<div class="flex items-center gap-4">
+					<span class="text-sm text-gray-400">No delivery data</span>
+					<a href="/sales/delivery/new?date={{.RawDate}}" class="text-blue-600 hover:text-blue-800 text-sm">Add</a>
+				</div>
 			</div>
 			{{end}}
 		</div>
@@ -118,37 +127,41 @@
 	{{end}}
 </div>
 {{else}}
-<p class="empty-state-inline">No entries</p>
+<p class="text-gray-500 text-sm py-4">No entries</p>
 {{end}}
 {{end}}
 
 {{if .Grouped}}
 <!-- Today -->
 {{if .Grouped.Today}}
-<div class="sales-group" data-collapsed="{{.Grouped.Today.Collapsed}}">
-	<div class="sales-group-header" onclick="toggleGroup(this)">
-		<span class="collapse-icon">{{if .Grouped.Today.Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
-		<span class="group-label">{{.Grouped.Today.Label}}</span>
-		<span class="group-total">${{printf "%.2f" .Grouped.Today.Total}}</span>
+<div class="sales-group mb-4" data-collapsed="{{.Grouped.Today.Collapsed}}">
+	<div class="sales-group-header flex items-center justify-between px-4 py-4 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50" onclick="toggleGroup(this)">
+		<div class="flex items-center gap-3">
+			<span class="collapse-icon text-gray-400">{{if .Grouped.Today.Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
+			<span class="font-semibold text-gray-900">{{.Grouped.Today.Label}}</span>
+		</div>
+		<span class="text-lg font-bold text-gray-900">${{printf "%.2f" .Grouped.Today.Total}}</span>
 	</div>
-	<div class="sales-group-content" {{if .Grouped.Today.Collapsed}}style="display:none"{{end}}>
+	<div class="sales-group-content mt-2 ml-4" {{if .Grouped.Today.Collapsed}}style="display:none"{{end}}>
 		{{template "sales-table" .Grouped.Today.Sales}}
 		{{if .Grouped.Today.Delivery}}
-		<div class="delivery-row">
-			<span class="delivery-label">Delivery</span>
-			<span class="delivery-amounts">
-				<span class="gross">${{printf "%.2f" .Grouped.Today.Delivery.TotalSubtotal}} gross</span> /
-				<span class="net">${{printf "%.2f" .Grouped.Today.Delivery.TotalNet}} net</span>
-			</span>
-			<a href="/sales/delivery/{{.TodayDate}}/edit" class="btn btn-secondary btn-small">Edit</a>
+		<div class="flex items-center justify-between px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg mt-2">
+			<span class="text-sm font-medium text-gray-700">Delivery</span>
+			<div class="flex items-center gap-4">
+				<span class="text-sm text-gray-600">
+					<span class="font-medium text-gray-900">${{printf "%.2f" .Grouped.Today.Delivery.TotalSubtotal}}</span> gross /
+					<span class="font-medium text-green-600">${{printf "%.2f" .Grouped.Today.Delivery.TotalNet}}</span> net
+				</span>
+				<a href="/sales/delivery/{{.TodayDate}}/edit" class="text-blue-600 hover:text-blue-800 text-sm">Edit</a>
+			</div>
 		</div>
 		{{else}}
-		<div class="delivery-row">
-			<span class="delivery-label">Delivery</span>
-			<span class="delivery-amounts">
-				<span class="gross">No delivery data</span>
-			</span>
-			<a href="/sales/delivery/new" class="btn btn-secondary btn-small">Add</a>
+		<div class="flex items-center justify-between px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg mt-2">
+			<span class="text-sm font-medium text-gray-700">Delivery</span>
+			<div class="flex items-center gap-4">
+				<span class="text-sm text-gray-400">No delivery data</span>
+				<a href="/sales/delivery/new" class="text-blue-600 hover:text-blue-800 text-sm">Add</a>
+			</div>
 		</div>
 		{{end}}
 	</div>
@@ -157,13 +170,15 @@
 
 <!-- This Month -->
 {{if .Grouped.ThisMonth}}
-<div class="sales-group" data-collapsed="{{.Grouped.ThisMonth.Collapsed}}">
-	<div class="sales-group-header" onclick="toggleGroup(this)">
-		<span class="collapse-icon">{{if .Grouped.ThisMonth.Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
-		<span class="group-label">{{.Grouped.ThisMonth.Label}}</span>
-		<span class="group-total">${{printf "%.2f" .Grouped.ThisMonth.Total}}</span>
+<div class="sales-group mb-4" data-collapsed="{{.Grouped.ThisMonth.Collapsed}}">
+	<div class="sales-group-header flex items-center justify-between px-4 py-4 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50" onclick="toggleGroup(this)">
+		<div class="flex items-center gap-3">
+			<span class="collapse-icon text-gray-400">{{if .Grouped.ThisMonth.Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
+			<span class="font-semibold text-gray-900">{{.Grouped.ThisMonth.Label}}</span>
+		</div>
+		<span class="text-lg font-bold text-gray-900">${{printf "%.2f" .Grouped.ThisMonth.Total}}</span>
 	</div>
-	<div class="sales-group-content" {{if .Grouped.ThisMonth.Collapsed}}style="display:none"{{end}}>
+	<div class="sales-group-content mt-2 ml-4" {{if .Grouped.ThisMonth.Collapsed}}style="display:none"{{end}}>
 		{{template "date-grouped-table" .Grouped.ThisMonth.DateGroups}}
 	</div>
 </div>
@@ -171,13 +186,15 @@
 
 <!-- Previous Months (current year) -->
 {{range .Grouped.PrevMonths}}
-<div class="sales-group" data-collapsed="{{.Collapsed}}">
-	<div class="sales-group-header" onclick="toggleGroup(this)">
-		<span class="collapse-icon">{{if .Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
-		<span class="group-label">{{.Label}}</span>
-		<span class="group-total">${{printf "%.2f" .Total}}</span>
+<div class="sales-group mb-4" data-collapsed="{{.Collapsed}}">
+	<div class="sales-group-header flex items-center justify-between px-4 py-4 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50" onclick="toggleGroup(this)">
+		<div class="flex items-center gap-3">
+			<span class="collapse-icon text-gray-400">{{if .Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
+			<span class="font-semibold text-gray-900">{{.Label}}</span>
+		</div>
+		<span class="text-lg font-bold text-gray-900">${{printf "%.2f" .Total}}</span>
 	</div>
-	<div class="sales-group-content" {{if .Collapsed}}style="display:none"{{end}}>
+	<div class="sales-group-content mt-2 ml-4" {{if .Collapsed}}style="display:none"{{end}}>
 		{{template "date-grouped-table" .DateGroups}}
 	</div>
 </div>
@@ -185,20 +202,24 @@
 
 <!-- Previous Years -->
 {{range .Grouped.PrevYears}}
-<div class="sales-group" data-collapsed="{{.Collapsed}}">
-	<div class="sales-group-header" onclick="toggleGroup(this)">
-		<span class="collapse-icon">{{if .Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
-		<span class="group-label">{{.Label}}</span>
-		<span class="group-total">${{printf "%.2f" .Total}}</span>
+<div class="sales-group mb-4" data-collapsed="{{.Collapsed}}">
+	<div class="sales-group-header flex items-center justify-between px-4 py-4 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50" onclick="toggleGroup(this)">
+		<div class="flex items-center gap-3">
+			<span class="collapse-icon text-gray-400">{{if .Collapsed}}&#9654;{{else}}&#9660;{{end}}</span>
+			<span class="font-semibold text-gray-900">{{.Label}}</span>
+		</div>
+		<span class="text-lg font-bold text-gray-900">${{printf "%.2f" .Total}}</span>
 	</div>
-	<div class="sales-group-content" {{if .Collapsed}}style="display:none"{{end}}>
+	<div class="sales-group-content mt-2 ml-4" {{if .Collapsed}}style="display:none"{{end}}>
 		{{template "date-grouped-table" .DateGroups}}
 	</div>
 </div>
 {{end}}
 
 {{else}}
-<p class="empty-state">No sales found. Add one using the button above.</p>
+<div class="text-center py-12">
+	<p class="text-gray-500 mb-4">No sales found. Add one using the button above.</p>
+</div>
 {{end}}
 
 <script>

@@ -3,3 +3,7 @@ data/
 *.db
 tmp/
 .DS_Store
+
+# Tailwind
+tailwindcss
+web/static/tailwind-out.css

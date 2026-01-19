@@ -1,4 +1,4 @@
-.PHONY: build run dev watch docker-up docker-down backup clean seed repopulate release
+.PHONY: build run dev watch docker-up docker-down backup clean seed repopulate release tailwind-install tailwind-build tailwind-watch
 
 # Version info
 VERSION ?= $(shell cat VERSION 2>/dev/null || echo "dev")
@@ -86,3 +86,42 @@ repopulate:
 		echo "Stopping server..."; \
 		kill $$SERVER_PID 2>/dev/null; \
 		echo "Done! Database repopulated with seed data."
+
+# Tailwind CSS
+TAILWIND_VERSION := v3.4.17
+
+# Download Tailwind CLI binary for current platform
+tailwind-install:
+	@if [ ! -f ./tailwindcss ]; then \
+		echo "Downloading Tailwind CSS CLI..."; \
+		ARCH=$$(uname -m); \
+		OS=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
+		if [ "$$ARCH" = "arm64" ] && [ "$$OS" = "darwin" ]; then \
+			curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/$(TAILWIND_VERSION)/tailwindcss-macos-arm64; \
+			mv tailwindcss-macos-arm64 tailwindcss; \
+		elif [ "$$ARCH" = "x86_64" ] && [ "$$OS" = "darwin" ]; then \
+			curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/$(TAILWIND_VERSION)/tailwindcss-macos-x64; \
+			mv tailwindcss-macos-x64 tailwindcss; \
+		elif [ "$$ARCH" = "x86_64" ] && [ "$$OS" = "linux" ]; then \
+			curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/$(TAILWIND_VERSION)/tailwindcss-linux-x64; \
+			mv tailwindcss-linux-x64 tailwindcss; \
+		elif [ "$$ARCH" = "aarch64" ] && [ "$$OS" = "linux" ]; then \
+			curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/$(TAILWIND_VERSION)/tailwindcss-linux-arm64; \
+			mv tailwindcss-linux-arm64 tailwindcss; \
+		else \
+			echo "Unsupported platform: $$OS $$ARCH"; \
+			exit 1; \
+		fi; \
+		chmod +x tailwindcss; \
+		echo "Tailwind CSS CLI installed successfully"; \
+	else \
+		echo "Tailwind CSS CLI already installed"; \
+	fi
+
+# Build Tailwind CSS
+tailwind-build: tailwind-install
+	./tailwindcss -i ./web/static/tailwind.css -o ./web/static/tailwind-out.css --minify
+
+# Watch Tailwind CSS for changes
+tailwind-watch: tailwind-install
+	./tailwindcss -i ./web/static/tailwind.css -o ./web/static/tailwind-out.css --watch

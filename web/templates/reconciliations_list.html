@@ -1,99 +1,123 @@
 {{template "header" .}}
-<div class="page-header">
-	<h1>Bank Statements</h1>
-	<a href="/expenses" class="btn btn-secondary">Back to Receipts</a>
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+	<h1 class="text-2xl font-semibold text-gray-900">Bank Statements</h1>
+	<a href="/expenses" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50">Back to Receipts</a>
 </div>
 
 {{if .Reconciliations}}
-<table>
-	<thead>
-		<tr>
-			<th>Statement Date</th>
-			<th>Account</th>
-			<th class="money">Deposits</th>
-			<th class="money">Payments</th>
-			<th class="money">Checks</th>
-			<th class="money">Fees</th>
-			<th>Status</th>
-			<th class="actions"></th>
-		</tr>
-	</thead>
-	<tbody>
-		{{range .Reconciliations}}
-		<tr>
-			<td><a href="/bank-statements/{{.ID}}">{{.StatementDateDisplay}}</a></td>
-			<td>{{if .AccountLastFour}}****{{.AccountLastFour}}{{else}}-{{end}}</td>
-			<td class="money" style="color: #16a34a;">{{if gt .ElectronicDeposits 0.0}}<span class="fmt-money">{{printf "%.2f" .ElectronicDeposits}}</span>{{else}}-{{end}}</td>
-			<td class="money" style="color: #dc2626;">{{if gt .ElectronicPayments 0.0}}<span class="fmt-money">{{printf "%.2f" .ElectronicPayments}}</span>{{else}}-{{end}}</td>
-			<td class="money" style="color: #dc2626;">{{if gt .ChecksPaid 0.0}}<span class="fmt-money">{{printf "%.2f" .ChecksPaid}}</span>{{else}}-{{end}}</td>
-			<td class="money" style="color: #dc2626;">{{if gt .ServiceFees 0.0}}<span class="fmt-money">{{printf "%.2f" .ServiceFees}}</span>{{else}}-{{end}}</td>
-			<td>
-				{{if eq .Status "completed"}}
-					<span class="status status-paid">Completed</span>
-				{{else if eq .Status "parsed"}}
-					<span class="status status-unpaid">Ready to Review</span>
-				{{else if eq .Status "parsing"}}
-					<span class="status" style="background: #fef3c7; color: #92400e;">Parsing...</span>
-				{{else if eq .Status "pending"}}
-					<span class="status" style="background: #e5e7eb; color: #374151;">Pending</span>
-				{{else}}
-					<span class="status status-unpaid">{{.Status}}</span>
+<div class="bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
+	<div class="overflow-x-auto">
+		<table class="w-full text-sm">
+			<thead>
+				<tr class="border-b border-gray-200 bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+					<th class="text-left py-3 px-4 font-medium">Statement Date</th>
+					<th class="text-left py-3 px-2 font-medium">Account</th>
+					<th class="text-right py-3 px-2 font-medium">Deposits</th>
+					<th class="text-right py-3 px-2 font-medium">Payments</th>
+					<th class="text-right py-3 px-2 font-medium">Checks</th>
+					<th class="text-right py-3 px-2 font-medium">Fees</th>
+					<th class="text-center py-3 px-2 font-medium">Status</th>
+					<th class="py-3 px-4"></th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-100">
+				{{range .Reconciliations}}
+				<tr class="hover:bg-gray-50">
+					<td class="py-3 px-4">
+						<a href="/bank-statements/{{.ID}}" class="text-blue-600 hover:text-blue-800 font-medium">{{.StatementDateDisplay}}</a>
+					</td>
+					<td class="py-3 px-2 text-gray-600">{{if .AccountLastFour}}****{{.AccountLastFour}}{{else}}-{{end}}</td>
+					<td class="py-3 px-2 text-right">
+						{{if gt .ElectronicDeposits 0.0}}
+						<span class="text-green-600 fmt-money">{{printf "%.2f" .ElectronicDeposits}}</span>
+						{{else}}<span class="text-gray-400">-</span>{{end}}
+					</td>
+					<td class="py-3 px-2 text-right">
+						{{if gt .ElectronicPayments 0.0}}
+						<span class="text-red-600 fmt-money">{{printf "%.2f" .ElectronicPayments}}</span>
+						{{else}}<span class="text-gray-400">-</span>{{end}}
+					</td>
+					<td class="py-3 px-2 text-right">
+						{{if gt .ChecksPaid 0.0}}
+						<span class="text-red-600 fmt-money">{{printf "%.2f" .ChecksPaid}}</span>
+						{{else}}<span class="text-gray-400">-</span>{{end}}
+					</td>
+					<td class="py-3 px-2 text-right">
+						{{if gt .ServiceFees 0.0}}
+						<span class="text-red-600 fmt-money">{{printf "%.2f" .ServiceFees}}</span>
+						{{else}}<span class="text-gray-400">-</span>{{end}}
+					</td>
+					<td class="py-3 px-2 text-center">
+						{{if eq .Status "completed"}}
+						<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">Completed</span>
+						{{else if eq .Status "parsed"}}
+						<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Ready to Review</span>
+						{{else if eq .Status "parsing"}}
+						<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800">Parsing...</span>
+						{{else if eq .Status "pending"}}
+						<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700">Pending</span>
+						{{else}}
+						<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">{{.Status}}</span>
+						{{end}}
+					</td>
+					<td class="py-3 px-4 text-right">
+						{{if eq .Status "completed"}}
+						<a href="/bank-statements/{{.ID}}" class="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 rounded text-xs font-medium hover:bg-gray-50">View</a>
+						{{else if eq .Status "parsed"}}
+						<a href="/bank-statements/{{.ID}}" class="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 rounded text-xs font-medium hover:bg-gray-50">Review</a>
+						{{else if eq .Status "parsing"}}
+						<span class="px-2.5 py-1 bg-white border border-gray-300 text-gray-400 rounded text-xs font-medium opacity-50">Parsing...</span>
+						{{else}}
+						<span class="px-2.5 py-1 bg-white border border-gray-300 text-gray-400 rounded text-xs font-medium opacity-50">Waiting...</span>
+						{{end}}
+					</td>
+				</tr>
 				{{end}}
-			</td>
-			<td class="actions">
-				{{if eq .Status "completed"}}
-					<a href="/bank-statements/{{.ID}}" class="btn btn-secondary btn-small">View</a>
-				{{else if eq .Status "parsed"}}
-					<a href="/bank-statements/{{.ID}}" class="btn btn-secondary btn-small">Review</a>
-				{{else if eq .Status "parsing"}}
-					<span class="btn btn-secondary btn-small" style="opacity: 0.5;">Parsing...</span>
-				{{else}}
-					<span class="btn btn-secondary btn-small" style="opacity: 0.5;">Waiting...</span>
-				{{end}}
-			</td>
-		</tr>
-		{{end}}
-	</tbody>
-</table>
+			</tbody>
+		</table>
+	</div>
+</div>
 {{else}}
-<p class="empty-state">No bank reconciliations yet. Upload a statement to get started.</p>
+<div class="bg-white border border-gray-200 rounded-lg px-6 py-12 text-center mb-6">
+	<p class="text-gray-500">No bank statements yet. Upload a statement to get started.</p>
+</div>
 {{end}}
 
-<div class="card" style="margin-top: 2rem;">
-	<h2 style="margin-top: 0;">Upload Bank Statement</h2>
+<!-- Upload Card -->
+<div class="bg-white border border-gray-200 rounded-lg p-5">
+	<h2 class="text-lg font-semibold text-gray-900 mb-4">Upload Bank Statement</h2>
 	<form id="upload-form" action="/bank-statements/upload" method="POST" enctype="multipart/form-data">
-		<div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
-			<div class="form-group" style="margin-bottom: 0;">
-				<label for="statement_month">Statement Month</label>
-				<select id="statement_month" name="statement_month" required>
+		<div class="flex gap-4 items-end flex-wrap">
+			<div>
+				<label for="statement_month" class="block text-sm font-medium text-gray-700 mb-1">Statement Month</label>
+				<select id="statement_month" name="statement_month" required
+					class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
 					{{range .AvailableMonths}}
 					<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>
 					{{end}}
 				</select>
 			</div>
-			<div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
-				<label for="statement_file">Bank Statement (PDF)</label>
-				<input type="file" id="statement_file" name="statement_file" accept=".pdf" required>
+			<div class="flex-1 min-w-[200px]">
+				<label for="statement_file" class="block text-sm font-medium text-gray-700 mb-1">Bank Statement (PDF)</label>
+				<input type="file" id="statement_file" name="statement_file" accept=".pdf" required
+					class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
 			</div>
-			<button type="submit" id="upload-btn" class="btn btn-primary">Upload Statement</button>
+			<button type="submit" id="upload-btn" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">
+				Upload Statement
+			</button>
 		</div>
 	</form>
-	<div id="upload-progress" style="display: none; margin-top: 1rem;">
-		<div style="display: flex; align-items: center; gap: 0.5rem;">
-			<div class="spinner" style="width: 20px; height: 20px; border: 2px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-			<span id="progress-text">Uploading...</span>
+	<div id="upload-progress" class="hidden mt-4">
+		<div class="flex items-center gap-2">
+			<div class="w-5 h-5 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+			<span id="progress-text" class="text-sm text-gray-600">Uploading...</span>
 		</div>
-		<div style="margin-top: 0.5rem; background: #e5e7eb; border-radius: 4px; height: 8px; overflow: hidden;">
-			<div id="progress-bar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s;"></div>
+		<div class="mt-2 bg-gray-200 rounded h-2 overflow-hidden">
+			<div id="progress-bar" class="bg-blue-500 h-full w-0 transition-all duration-300"></div>
 		</div>
 	</div>
 </div>
-
-<style>
-@keyframes spin {
-	to { transform: rotate(360deg); }
-}
-</style>
 
 <script>
 document.getElementById('upload-form').addEventListener('submit', async function(e) {
@@ -108,7 +132,8 @@ document.getElementById('upload-form').addEventListener('submit', async function
 	// Disable form
 	btn.disabled = true;
 	btn.textContent = 'Uploading...';
-	progress.style.display = 'block';
+	btn.classList.add('opacity-50', 'cursor-not-allowed');
+	progress.classList.remove('hidden');
 	progressText.textContent = 'Uploading file...';
 	progressBar.style.width = '10%';
 
@@ -164,7 +189,8 @@ document.getElementById('upload-form').addEventListener('submit', async function
 		alert('Error: ' + err.message);
 		btn.disabled = false;
 		btn.textContent = 'Upload Statement';
-		progress.style.display = 'none';
+		btn.classList.remove('opacity-50', 'cursor-not-allowed');
+		progress.classList.add('hidden');
 	}
 });
 

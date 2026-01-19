@@ -1,73 +1,90 @@
 {{template "header" .}}
-<div class="page-header">
-	<h1>{{.Vendor.Name}}</h1>
-	<a href="/vendors/{{.Vendor.ID}}/edit" class="btn btn-secondary">Edit Vendor</a>
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+	<h1 class="text-2xl font-semibold text-gray-900">{{.Vendor.Name}}</h1>
+	<a href="/vendors/{{.Vendor.ID}}/edit" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50">Edit Vendor</a>
 </div>
 
-<div class="vendor-details">
+<!-- Vendor Details Card -->
+<div class="bg-white border border-gray-200 rounded-lg p-5 mb-6">
 	{{if .Vendor.Description}}
-	<p class="vendor-description">{{.Vendor.Description}}</p>
+	<p class="text-gray-600 mb-4">{{.Vendor.Description}}</p>
 	{{end}}
 	{{if .Vendor.Category}}
-	<div class="vendor-categories">
+	<div class="flex flex-wrap gap-2">
 		{{range .Vendor.CategoryList}}
-		<span class="category-tag">{{.}}</span>
+		<span class="inline-flex px-3 py-1 text-sm font-medium rounded-full bg-blue-100 text-blue-800">{{.}}</span>
 		{{end}}
 	</div>
 	{{end}}
+	{{if and (not .Vendor.Description) (not .Vendor.Category)}}
+	<p class="text-gray-400 text-sm">No description or categories set.</p>
+	{{end}}
 </div>
 
-<h2 style="margin-top: 2rem;">Receipts</h2>
+<!-- Receipts Section -->
+<h2 class="text-lg font-semibold text-gray-900 mb-4">Receipts</h2>
 
 {{if .Expenses}}
-<table>
-	<thead>
-		<tr>
-			<th>Date</th>
-			<th class="money">Amount</th>
-			<th class="hide-mobile">Invoice #</th>
-			<th class="hide-mobile">Due Date</th>
-			<th>Status</th>
-			<th class="hide-mobile">Payment</th>
-			<th class="actions"></th>
-		</tr>
-	</thead>
-	<tbody>
-		{{range .Expenses}}
-		<tr>
-			<td>{{.Date}}</td>
-			<td class="money">${{printf "%.2f" .Amount}}</td>
-			<td class="hide-mobile">{{.InvoiceNumber}}</td>
-			<td class="hide-mobile">{{.DueDate}}</td>
-			<td>
-				{{if eq .Status "paid"}}
-				<span class="status status-paid">Paid</span>
-				{{else}}
-				<span class="status status-unpaid">Unpaid</span>
+<div class="bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
+	<div class="overflow-x-auto">
+		<table class="w-full text-sm">
+			<thead>
+				<tr class="border-b border-gray-200 bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+					<th class="text-left py-3 px-4 font-medium">Date</th>
+					<th class="text-right py-3 px-2 font-medium">Amount</th>
+					<th class="text-left py-3 px-2 font-medium hidden md:table-cell">Invoice #</th>
+					<th class="text-left py-3 px-2 font-medium hidden md:table-cell">Due Date</th>
+					<th class="text-center py-3 px-2 font-medium">Status</th>
+					<th class="text-left py-3 px-2 font-medium hidden md:table-cell">Payment</th>
+					<th class="py-3 px-4"></th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-100">
+				{{range .Expenses}}
+				<tr class="hover:bg-gray-50">
+					<td class="py-3 px-4 text-gray-900">{{.Date}}</td>
+					<td class="py-3 px-2 text-right text-gray-900 font-medium">${{printf "%.2f" .Amount}}</td>
+					<td class="py-3 px-2 text-gray-600 hidden md:table-cell">{{.InvoiceNumber}}</td>
+					<td class="py-3 px-2 text-gray-600 hidden md:table-cell">{{.DueDate}}</td>
+					<td class="py-3 px-2 text-center">
+						{{if eq .Status "paid"}}
+						<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">Paid</span>
+						{{else}}
+						<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Unpaid</span>
+						{{end}}
+					</td>
+					<td class="py-3 px-2 text-gray-600 hidden md:table-cell">{{.PaymentType}} {{if .CheckNumber}}#{{.CheckNumber}}{{end}}</td>
+					<td class="py-3 px-4 text-right">
+						<div class="flex justify-end gap-2">
+							{{if eq .Status "not_paid"}}
+							<a href="/expenses/{{.ID}}/pay" class="px-2.5 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">Mark Paid</a>
+							{{end}}
+							<a href="/expenses/{{.ID}}/edit" class="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 rounded text-xs font-medium hover:bg-gray-50">Edit</a>
+						</div>
+					</td>
+				</tr>
 				{{end}}
-			</td>
-			<td class="hide-mobile">{{.PaymentType}} {{if .CheckNumber}}#{{.CheckNumber}}{{end}}</td>
-			<td class="actions">
-				{{if eq .Status "not_paid"}}
-				<a href="/expenses/{{.ID}}/pay" class="btn btn-success btn-small">Mark Paid</a>
-				{{end}}
-				<a href="/expenses/{{.ID}}/edit" class="btn btn-secondary btn-small">Edit</a>
-			</td>
-		</tr>
-		{{end}}
-		<tr class="totals-row">
-			<td>Total</td>
-			<td class="money">${{printf "%.2f" .Total}}</td>
-			<td colspan="5"></td>
-		</tr>
-	</tbody>
-</table>
+			</tbody>
+			<tfoot>
+				<tr class="bg-gray-50 border-t border-gray-200">
+					<td class="py-3 px-4 font-semibold text-gray-900">Total</td>
+					<td class="py-3 px-2 text-right font-bold text-gray-900">${{printf "%.2f" .Total}}</td>
+					<td colspan="5"></td>
+				</tr>
+			</tfoot>
+		</table>
+	</div>
+</div>
 {{else}}
-<p class="empty-state">No receipts found for this vendor.</p>
+<div class="bg-white border border-gray-200 rounded-lg px-6 py-12 text-center mb-6">
+	<p class="text-gray-500">No receipts found for this vendor.</p>
+</div>
 {{end}}
 
-<div style="margin-top: 2rem;">
-	<a href="/expenses/new?vendor_id={{.Vendor.ID}}" class="btn btn-primary">Add Receipt for {{.Vendor.Name}}</a>
-	<a href="/vendors" class="btn btn-secondary">Back to Vendors</a>
+<div class="flex flex-wrap gap-3">
+	<a href="/expenses/new?vendor_id={{.Vendor.ID}}" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">Add Receipt for {{.Vendor.Name}}</a>
+	<a href="/vendors" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50">Back to Vendors</a>
 </div>
+
 {{template "footer" .}}

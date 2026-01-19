@@ -1,49 +1,59 @@
 {{template "header" .}}
-<div class="page-header">
-	<h1>Payroll</h1>
-	<div style="display: flex; gap: 0.5rem;">
-		<a href="/payroll/weeks/new" class="btn btn-primary">New Week</a>
-		<a href="/employees" class="btn btn-secondary">Employees</a>
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+	<h1 class="text-2xl font-semibold text-gray-900">Payroll</h1>
+	<div class="flex gap-2">
+		<a href="/payroll/weeks/new" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">New Week</a>
+		<a href="/employees" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50">Employees</a>
 	</div>
 </div>
 
 {{if .Weeks}}
-<table>
-	<thead>
-		<tr>
-			<th class="hide-mobile">#</th>
-			<th>Week Ending</th>
-			<th class="money hide-mobile">Employees</th>
-			<th class="money hide-mobile">Hours</th>
-			<th class="money">Total</th>
-			<th>Status</th>
-			<th class="actions"></th>
-		</tr>
-	</thead>
-	<tbody>
-		{{range .Weeks}}
-		<tr>
-			<td class="hide-mobile">{{.WeekID}}</td>
-			<td>{{.PeriodEndDisplay}}</td>
-			<td class="money hide-mobile">{{.EmployeeCount}}</td>
-			<td class="money hide-mobile">{{printf "%.1f" .TotalHours}}</td>
-			<td class="money">${{printf "%.2f" .TotalPay}}</td>
-			<td>
-				{{if .AllPaid}}
-					<span class="status status-paid">All Paid</span>
-				{{else}}
-					<span class="status status-unpaid">{{.PaidCount}}/{{.EmployeeCount}} Paid</span>
+<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+	<div class="overflow-x-auto">
+		<table class="w-full text-sm">
+			<thead>
+				<tr class="border-b border-gray-200 bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+					<th class="text-left py-3 px-4 font-medium hidden md:table-cell">#</th>
+					<th class="text-left py-3 px-4 font-medium">Week Ending</th>
+					<th class="text-right py-3 px-2 font-medium hidden md:table-cell">Employees</th>
+					<th class="text-right py-3 px-2 font-medium hidden md:table-cell">Hours</th>
+					<th class="text-right py-3 px-2 font-medium">Total</th>
+					<th class="text-center py-3 px-2 font-medium">Status</th>
+					<th class="py-3 px-4"></th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-100">
+				{{range .Weeks}}
+				<tr class="hover:bg-gray-50">
+					<td class="py-3 px-4 text-gray-500 hidden md:table-cell">{{.WeekID}}</td>
+					<td class="py-3 px-4 text-gray-900 font-medium">{{.PeriodEndDisplay}}</td>
+					<td class="py-3 px-2 text-right text-gray-600 hidden md:table-cell">{{.EmployeeCount}}</td>
+					<td class="py-3 px-2 text-right text-gray-600 hidden md:table-cell">{{printf "%.1f" .TotalHours}}</td>
+					<td class="py-3 px-2 text-right text-gray-900 font-medium">${{printf "%.2f" .TotalPay}}</td>
+					<td class="py-3 px-2 text-center">
+						{{if .AllPaid}}
+						<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">All Paid</span>
+						{{else}}
+						<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">{{.PaidCount}}/{{.EmployeeCount}} Paid</span>
+						{{end}}
+					</td>
+					<td class="py-3 px-4 text-right">
+						<div class="flex justify-end gap-2">
+							<a href="/payroll/weeks/{{.WeekID}}/edit" class="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 rounded text-xs font-medium hover:bg-gray-50">Edit</a>
+							<a href="/payroll/history/{{.WeekID}}" class="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 rounded text-xs font-medium hover:bg-gray-50">View</a>
+						</div>
+					</td>
+				</tr>
 				{{end}}
-			</td>
-			<td class="actions">
-				<a href="/payroll/weeks/{{.WeekID}}/edit" class="btn btn-secondary btn-small">Edit</a>
-				<a href="/payroll/history/{{.WeekID}}" class="btn btn-secondary btn-small">View</a>
-			</td>
-		</tr>
-		{{end}}
-	</tbody>
-</table>
+			</tbody>
+		</table>
+	</div>
+</div>
 {{else}}
-<p class="empty-state">No payroll weeks yet. Create a new week to get started.</p>
+<div class="bg-white border border-gray-200 rounded-lg px-6 py-12 text-center">
+	<p class="text-gray-500">No payroll weeks yet. Create a new week to get started.</p>
+</div>
 {{end}}
+
 {{template "footer" .}}

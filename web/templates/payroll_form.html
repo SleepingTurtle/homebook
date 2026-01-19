@@ -1,90 +1,120 @@
 {{template "header" .}}
-<div class="page-header">
-	<h1>{{if .Payroll.ID}}Edit Payroll{{else}}New Payroll{{end}}</h1>
+
+<div class="max-w-xl mx-auto">
+	<h1 class="text-2xl font-semibold text-gray-900 mb-6">{{if .Payroll.ID}}Edit Payroll{{else}}New Payroll{{end}}</h1>
+
+	{{if .Error}}
+	<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">{{.Error}}</div>
+	{{end}}
+
+	<form action="{{if .Payroll.ID}}/payroll/entry/{{.Payroll.ID}}{{else}}/payroll{{end}}" method="POST" class="bg-white border border-gray-200 rounded-lg p-6">
+		<div class="space-y-5">
+			<div>
+				<label for="employee_id" class="block text-sm font-medium text-gray-700 mb-1">Employee</label>
+				<select id="employee_id" name="employee_id" required onchange="updateDefaults(this)"
+					class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+					<option value="">Select Employee</option>
+					{{range .Employees}}
+					<option value="{{.ID}}" data-rate="{{.HourlyRate}}" data-method="{{.PaymentMethod}}" {{if eq $.Payroll.EmployeeID .ID}}selected{{end}}>{{.Name}}</option>
+					{{end}}
+				</select>
+			</div>
+
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label for="period_start" class="block text-sm font-medium text-gray-700 mb-1">Period Start</label>
+					<input type="date" id="period_start" name="period_start" value="{{.Payroll.PeriodStart}}" required
+						class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+				</div>
+				<div>
+					<label for="period_end" class="block text-sm font-medium text-gray-700 mb-1">Period End</label>
+					<input type="date" id="period_end" name="period_end" value="{{.Payroll.PeriodEnd}}" required
+						class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+				</div>
+			</div>
+
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label for="total_hours" class="block text-sm font-medium text-gray-700 mb-1">Total Hours</label>
+					<input type="number" id="total_hours" name="total_hours" step="0.25" min="0" value="{{if .Payroll.ID}}{{printf "%.2f" .Payroll.TotalHours}}{{end}}" required oninput="calculatePay()"
+						class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+				</div>
+				<div>
+					<label for="hourly_rate" class="block text-sm font-medium text-gray-700 mb-1">Hourly Rate</label>
+					<input type="number" id="hourly_rate" name="hourly_rate" step="0.01" min="0" value="{{if .Payroll.ID}}{{printf "%.2f" .Payroll.HourlyRate}}{{end}}" required oninput="calculatePay()"
+						class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+				</div>
+			</div>
+
+			<div class="bg-gray-50 rounded-lg p-4">
+				<label class="block text-sm font-medium text-gray-500 mb-1">Total Pay (calculated)</label>
+				<div id="total_pay_display" class="text-2xl font-bold text-gray-900">$0.00</div>
+			</div>
+
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label for="payment_method" class="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+					<select id="payment_method" name="payment_method" required
+						class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+						<option value="cash" {{if eq .Payroll.PaymentMethod "cash"}}selected{{end}}>Cash</option>
+						<option value="check" {{if eq .Payroll.PaymentMethod "check"}}selected{{end}}>Check</option>
+					</select>
+				</div>
+				<div>
+					<label for="check_number" class="block text-sm font-medium text-gray-700 mb-1">
+						Check Number <span class="font-normal text-gray-400">(optional)</span>
+						{{if .LastCheckNumber}}<span class="text-gray-500">Last: {{.LastCheckNumber}}</span>{{end}}
+					</label>
+					<input type="text" id="check_number" name="check_number" value="{{.Payroll.CheckNumber}}"
+						class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+				</div>
+			</div>
+
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<label for="status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+					<select id="status" name="status" required
+						class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+						<option value="not_paid" {{if or (not .Payroll.ID) (eq .Payroll.Status "not_paid")}}selected{{end}}>Unpaid</option>
+						<option value="paid" {{if eq .Payroll.Status "paid"}}selected{{end}}>Paid</option>
+					</select>
+				</div>
+				<div>
+					<label for="date_paid" class="block text-sm font-medium text-gray-700 mb-1">
+						Date Paid <span class="font-normal text-gray-400">(optional)</span>
+					</label>
+					<input type="date" id="date_paid" name="date_paid" value="{{.Payroll.DatePaid}}"
+						class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+				</div>
+			</div>
+
+			<div>
+				<label for="notes" class="block text-sm font-medium text-gray-700 mb-1">
+					Notes <span class="font-normal text-gray-400">(optional)</span>
+				</label>
+				<textarea id="notes" name="notes" rows="2"
+					class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{.Payroll.Notes}}</textarea>
+			</div>
+		</div>
+
+		<div class="flex gap-3 mt-6 pt-5 border-t border-gray-200">
+			<button type="submit" class="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">
+				{{if .Payroll.ID}}Update{{else}}Save{{end}}
+			</button>
+			<a href="/payroll" class="flex-1 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 text-center">Cancel</a>
+		</div>
+	</form>
+
+	{{if .Payroll.ID}}
+	<div class="mt-6 pt-6 border-t border-gray-200">
+		<form action="/payroll/entry/{{.Payroll.ID}}/delete" method="POST" onsubmit="return confirm('Delete this payroll record?')">
+			<button type="submit" class="w-full px-4 py-2 bg-white text-red-600 border border-red-200 rounded-md text-sm font-medium hover:bg-red-50 hover:border-red-300">
+				Delete This Record
+			</button>
+		</form>
+	</div>
+	{{end}}
 </div>
-
-{{if .Error}}
-<div class="error">{{.Error}}</div>
-{{end}}
-
-<form action="{{if .Payroll.ID}}/payroll/entry/{{.Payroll.ID}}{{else}}/payroll{{end}}" method="POST">
-	<div class="form-group">
-		<label for="employee_id">Employee</label>
-		<select id="employee_id" name="employee_id" required onchange="updateDefaults(this)">
-			<option value="">Select Employee</option>
-			{{range .Employees}}
-			<option value="{{.ID}}" data-rate="{{.HourlyRate}}" data-method="{{.PaymentMethod}}" {{if eq $.Payroll.EmployeeID .ID}}selected{{end}}>{{.Name}}</option>
-			{{end}}
-		</select>
-	</div>
-
-	<div class="form-group">
-		<label for="period_start">Period Start</label>
-		<input type="date" id="period_start" name="period_start" value="{{.Payroll.PeriodStart}}" required>
-	</div>
-
-	<div class="form-group">
-		<label for="period_end">Period End</label>
-		<input type="date" id="period_end" name="period_end" value="{{.Payroll.PeriodEnd}}" required>
-	</div>
-
-	<div class="form-group">
-		<label for="total_hours">Total Hours</label>
-		<input type="number" id="total_hours" name="total_hours" step="0.25" min="0" value="{{if .Payroll.ID}}{{printf "%.2f" .Payroll.TotalHours}}{{end}}" required oninput="calculatePay()">
-	</div>
-
-	<div class="form-group">
-		<label for="hourly_rate">Hourly Rate</label>
-		<input type="number" id="hourly_rate" name="hourly_rate" step="0.01" min="0" value="{{if .Payroll.ID}}{{printf "%.2f" .Payroll.HourlyRate}}{{end}}" required oninput="calculatePay()">
-	</div>
-
-	<div class="form-group">
-		<label>Total Pay (calculated)</label>
-		<div id="total_pay_display" style="font-size: 1.2rem; font-weight: 600; padding: 0.5rem 0;">$0.00</div>
-	</div>
-
-	<div class="form-group">
-		<label for="payment_method">Payment Method</label>
-		<select id="payment_method" name="payment_method" required>
-			<option value="cash" {{if eq .Payroll.PaymentMethod "cash"}}selected{{end}}>Cash</option>
-			<option value="check" {{if eq .Payroll.PaymentMethod "check"}}selected{{end}}>Check</option>
-		</select>
-	</div>
-
-	<div class="form-group">
-		<label for="check_number">Check Number (optional){{if .LastCheckNumber}} - Last: {{.LastCheckNumber}}{{end}}</label>
-		<input type="text" id="check_number" name="check_number" value="{{.Payroll.CheckNumber}}">
-	</div>
-
-	<div class="form-group">
-		<label for="status">Status</label>
-		<select id="status" name="status" required>
-			<option value="not_paid" {{if or (not .Payroll.ID) (eq .Payroll.Status "not_paid")}}selected{{end}}>Unpaid</option>
-			<option value="paid" {{if eq .Payroll.Status "paid"}}selected{{end}}>Paid</option>
-		</select>
-	</div>
-
-	<div class="form-group">
-		<label for="date_paid">Date Paid (optional)</label>
-		<input type="date" id="date_paid" name="date_paid" value="{{.Payroll.DatePaid}}">
-	</div>
-
-	<div class="form-group">
-		<label for="notes">Notes (optional)</label>
-		<textarea id="notes" name="notes">{{.Payroll.Notes}}</textarea>
-	</div>
-
-	<div style="display: flex; gap: 0.5rem;">
-		<button type="submit" class="btn btn-primary">{{if .Payroll.ID}}Update{{else}}Save{{end}}</button>
-		<a href="/payroll" class="btn btn-secondary">Cancel</a>
-	</div>
-</form>
-
-{{if .Payroll.ID}}
-<form action="/payroll/entry/{{.Payroll.ID}}/delete" method="POST" style="margin-top: 2rem;" onsubmit="return confirm('Delete this payroll record?')">
-	<button type="submit" class="btn btn-danger">Delete This Record</button>
-</form>
-{{end}}
 
 <script>
 function updateDefaults(select) {
@@ -111,4 +141,5 @@ document.addEventListener('DOMContentLoaded', function() {
 	calculatePay();
 });
 </script>
+
 {{template "footer" .}}
