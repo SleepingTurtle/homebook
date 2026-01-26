@@ -251,25 +251,25 @@ jobs:
         run: sleep 10
 
       - name: Download Linux amd64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: homebooks-linux-amd64
           path: release
 
       - name: Download Linux arm64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: homebooks-linux-arm64
           path: release
 
       - name: Download macOS amd64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: homebooks-darwin-amd64
           path: release
 
       - name: Download macOS arm64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: homebooks-darwin-arm64
           path: release
