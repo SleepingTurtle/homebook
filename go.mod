@@ -2,4 +2,4 @@ module homebooks
 
 go 1.22
 
-require github.com/mattn/go-sqlite3 v1.14.33
+require github.com/mattn/go-sqlite3 v1.14.40
